@@ -1,0 +1,198 @@
+@page "/camps"
+@rendermode InteractiveServer
+@inject CampService CampService
+@inject VenueService VenueService
+
+<PageTitle>Camps - CheerDeck</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Camps</h1>
+    <button class="btn btn-primary" @onclick="() => _showForm = !_showForm">
+        @(_showForm ? "Cancel" : "Add Camp")
+    </button>
+</div>
+
+@if (_showForm)
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">New Camp</h5>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Name</label>
+                    <input class="form-control" @bind="_newCamp.Name" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Venue</label>
+                    <select class="form-select" @bind="_selectedVenueId">
+                        <option value="">-- None --</option>
+                        @foreach (var v in _venues)
+                        {
+                            <option value="@v.Id">@v.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" class="form-control" @bind="_startInput" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">End Date</label>
+                    <input type="date" class="form-control" @bind="_endInput" />
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label">Capacity</label>
+                    <input type="number" class="form-control" @bind="_newCamp.Capacity" />
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label">Price</label>
+                    <input type="number" step="0.01" class="form-control" @bind="_newCamp.Price" />
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-md-6">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" rows="2" @bind="_newCamp.Description"></textarea>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Min Level</label>
+                    <select class="form-select" @bind="_selectedMinLevel">
+                        <option value="">Any</option>
+                        @foreach (var level in Enum.GetValues<CheerLevel>())
+                        {
+                            <option value="@level">@level</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Max Level</label>
+                    <select class="form-select" @bind="_selectedMaxLevel">
+                        <option value="">Any</option>
+                        @foreach (var level in Enum.GetValues<CheerLevel>())
+                        {
+                            <option value="@level">@level</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-success w-100" @onclick="CreateCamp" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_camps.Count == 0)
+{
+    <div class="alert alert-info">No camps found.</div>
+}
+else
+{
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Dates</th>
+                <th>Venue</th>
+                <th>Capacity</th>
+                <th>Booked</th>
+                <th>Waiting</th>
+                <th>Price</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in _camps)
+            {
+                <tr>
+                    <td>@c.Name</td>
+                    <td>@c.StartDate.ToString("dd MMM") - @c.EndDate.ToString("dd MMM yyyy")</td>
+                    <td>@(c.Venue?.Name ?? "-")</td>
+                    <td>@c.Capacity</td>
+                    <td>@c.BookedCount</td>
+                    <td>@c.WaitingCount</td>
+                    <td>@c.Price.ToString("C")</td>
+                    <td><span class="badge @GetCampStatusBadge(c.Status)">@c.Status</span></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _showForm;
+    private bool _saving;
+    private List<Camp> _camps = new();
+    private List<Venue> _venues = new();
+    private Camp _newCamp = new();
+    private string _selectedVenueId = string.Empty;
+    private string _selectedMinLevel = string.Empty;
+    private string _selectedMaxLevel = string.Empty;
+    private DateTime _startInput = DateTime.Today.AddDays(14);
+    private DateTime _endInput = DateTime.Today.AddDays(16);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _venues = await VenueService.GetAllAsync();
+        await LoadCamps();
+    }
+
+    private async Task LoadCamps()
+    {
+        _loading = true;
+        _camps = await CampService.GetAllAsync();
+        _loading = false;
+    }
+
+    private async Task CreateCamp()
+    {
+        if (string.IsNullOrWhiteSpace(_newCamp.Name))
+            return;
+
+        _saving = true;
+        _newCamp.StartDate = DateOnly.FromDateTime(_startInput);
+        _newCamp.EndDate = DateOnly.FromDateTime(_endInput);
+
+        if (Guid.TryParse(_selectedVenueId, out var venueId))
+            _newCamp.VenueId = venueId;
+
+        if (!string.IsNullOrEmpty(_selectedMinLevel) && Enum.TryParse<CheerLevel>(_selectedMinLevel, out var minLevel))
+            _newCamp.MinLevel = minLevel;
+
+        if (!string.IsNullOrEmpty(_selectedMaxLevel) && Enum.TryParse<CheerLevel>(_selectedMaxLevel, out var maxLevel))
+            _newCamp.MaxLevel = maxLevel;
+
+        await CampService.CreateAsync(_newCamp);
+        _newCamp = new Camp();
+        _selectedVenueId = string.Empty;
+        _selectedMinLevel = string.Empty;
+        _selectedMaxLevel = string.Empty;
+        _startInput = DateTime.Today.AddDays(14);
+        _endInput = DateTime.Today.AddDays(16);
+        _showForm = false;
+        _saving = false;
+        await LoadCamps();
+    }
+
+    private string GetCampStatusBadge(CampStatus status) => status switch
+    {
+        CampStatus.Draft => "bg-secondary",
+        CampStatus.Published => "bg-primary",
+        CampStatus.Full => "bg-warning text-dark",
+        CampStatus.Completed => "bg-success",
+        CampStatus.Cancelled => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

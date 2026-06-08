@@ -1,0 +1,123 @@
+@page "/venues"
+@rendermode InteractiveServer
+@inject VenueService VenueService
+
+<PageTitle>Venues - CheerDeck</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Venues</h1>
+    <button class="btn btn-primary" @onclick="() => _showForm = !_showForm">
+        @(_showForm ? "Cancel" : "Add Venue")
+    </button>
+</div>
+
+@if (_showForm)
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">New Venue</h5>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Name</label>
+                    <input class="form-control" @bind="_newVenue.Name" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Address</label>
+                    <input class="form-control" @bind="_newVenue.Address" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Postcode</label>
+                    <input class="form-control" @bind="_newVenue.Postcode" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Default Capacity</label>
+                    <input type="number" class="form-control" @bind="_newVenue.DefaultCapacity" />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-success w-100" @onclick="CreateVenue" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-md-12">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control" rows="2" @bind="_newVenue.Notes"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_venues.Count == 0)
+{
+    <div class="alert alert-info">No venues found.</div>
+}
+else
+{
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Address</th>
+                <th>Postcode</th>
+                <th>Default Capacity</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var v in _venues)
+            {
+                <tr>
+                    <td>@v.Name</td>
+                    <td>@(v.Address ?? "-")</td>
+                    <td>@(v.Postcode ?? "-")</td>
+                    <td>@(v.DefaultCapacity?.ToString() ?? "-")</td>
+                    <td>@(v.Notes ?? "-")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _showForm;
+    private bool _saving;
+    private List<Venue> _venues = new();
+    private Venue _newVenue = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadVenues();
+    }
+
+    private async Task LoadVenues()
+    {
+        _loading = true;
+        _venues = await VenueService.GetAllAsync();
+        _loading = false;
+    }
+
+    private async Task CreateVenue()
+    {
+        if (string.IsNullOrWhiteSpace(_newVenue.Name))
+            return;
+
+        _saving = true;
+        await VenueService.CreateAsync(_newVenue);
+        _newVenue = new Venue();
+        _showForm = false;
+        _saving = false;
+        await LoadVenues();
+    }
+}

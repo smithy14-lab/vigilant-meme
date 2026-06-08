@@ -1,0 +1,167 @@
+@page "/messages"
+@rendermode InteractiveServer
+@inject MessageService MessageService
+@inject ClassService ClassService
+
+<PageTitle>Messages - CheerDeck</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Messages</h1>
+    <button class="btn btn-primary" @onclick="() => _showCompose = !_showCompose">
+        @(_showCompose ? "Cancel" : "Compose")
+    </button>
+</div>
+
+@if (_showCompose)
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">New Message</h5>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Subject</label>
+                    <input class="form-control" @bind="_subject" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Scope</label>
+                    <select class="form-select" @bind="_scope">
+                        @foreach (var s in Enum.GetValues<MessageScope>())
+                        {
+                            <option value="@s">@s</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Class (if scope = Class)</label>
+                    <select class="form-select" @bind="_selectedClassId">
+                        <option value="">-- None --</option>
+                        @foreach (var c in _classes)
+                        {
+                            <option value="@c.Id">@c.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" @bind="_sendEmail" id="emailCheck" />
+                        <label class="form-check-label" for="emailCheck">Send Email</label>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-md-10">
+                    <label class="form-label">Body</label>
+                    <textarea class="form-control" rows="3" @bind="_body"></textarea>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-success w-100" @onclick="SendMessage" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_messages.Count == 0)
+{
+    <div class="alert alert-info">No messages found.</div>
+}
+else
+{
+    <div class="list-group">
+        @foreach (var m in _messages)
+        {
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-1">@m.Subject</h6>
+                        <p class="mb-1 text-muted small">@m.Body</p>
+                        <small class="text-muted">
+                            <span class="badge @GetScopeBadge(m.Scope) me-1">@m.Scope</span>
+                            @(m.SentByName ?? "System") &middot; @m.SentAt.ToString("dd MMM yyyy HH:mm")
+                            &middot; @m.Recipients.Count recipient(s)
+                        </small>
+                    </div>
+                    @if (m.SendEmail)
+                    {
+                        <span class="badge bg-info">Email sent</span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _showCompose;
+    private bool _saving;
+    private List<Message> _messages = new();
+    private List<Class> _classes = new();
+
+    private string _subject = string.Empty;
+    private string _body = string.Empty;
+    private MessageScope _scope = MessageScope.Club;
+    private string _selectedClassId = string.Empty;
+    private bool _sendEmail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _classes = await ClassService.GetAllAsync();
+        await LoadMessages();
+    }
+
+    private async Task LoadMessages()
+    {
+        _loading = true;
+        _messages = await MessageService.GetInboxAsync();
+        _loading = false;
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_subject) || string.IsNullOrWhiteSpace(_body))
+            return;
+
+        _saving = true;
+        var message = new Message
+        {
+            Subject = _subject,
+            Body = _body,
+            Scope = _scope,
+            SendEmail = _sendEmail
+        };
+
+        if (_scope == MessageScope.Class && Guid.TryParse(_selectedClassId, out var classId))
+            message.ClassId = classId;
+
+        await MessageService.SendAsync(message);
+
+        _subject = string.Empty;
+        _body = string.Empty;
+        _scope = MessageScope.Club;
+        _selectedClassId = string.Empty;
+        _sendEmail = false;
+        _showCompose = false;
+        _saving = false;
+        await LoadMessages();
+    }
+
+    private string GetScopeBadge(MessageScope scope) => scope switch
+    {
+        MessageScope.Club => "bg-primary",
+        MessageScope.Class => "bg-info",
+        MessageScope.Individual => "bg-secondary",
+        _ => "bg-secondary"
+    };
+}

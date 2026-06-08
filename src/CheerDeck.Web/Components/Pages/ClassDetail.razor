@@ -1,0 +1,280 @@
+@page "/classes/{Id:guid}"
+@rendermode InteractiveServer
+@inject ClassService ClassService
+@inject AthleteService AthleteService
+@inject NavigationManager Nav
+
+<PageTitle>Class Details - CheerDeck</PageTitle>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_cls is null)
+{
+    <div class="alert alert-warning">Class not found.</div>
+    <a href="/classes" class="btn btn-outline-secondary">Back to Classes</a>
+}
+else
+{
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/classes">Classes</a></li>
+            <li class="breadcrumb-item active">@_cls.Name</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>@_cls.Name</h1>
+        <span class="badge fs-6 bg-primary">@_cls.DayOfWeek @_cls.StartTime.ToString("HH:mm")-@_cls.EndTime.ToString("HH:mm")</span>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">Class Info</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Venue</dt>
+                        <dd class="col-sm-7">@(_cls.Venue?.Name ?? "Not set")</dd>
+                        <dt class="col-sm-5">Term</dt>
+                        <dd class="col-sm-7">@(_cls.Term?.Name ?? "Not set")</dd>
+                        <dt class="col-sm-5">Level</dt>
+                        <dd class="col-sm-7">@(_cls.Level?.ToString() ?? "Any")</dd>
+                        <dt class="col-sm-5">Capacity</dt>
+                        <dd class="col-sm-7">@_cls.Capacity</dd>
+                        <dt class="col-sm-5">Enrolled</dt>
+                        <dd class="col-sm-7">@_activeEnrolments.Count</dd>
+                        <dt class="col-sm-5">Price / Session</dt>
+                        <dd class="col-sm-7">@_cls.PricePerSession.ToString("C")</dd>
+                        @if (_cls.TermPrice.HasValue)
+                        {
+                            <dt class="col-sm-5">Term Price</dt>
+                            <dd class="col-sm-7">@_cls.TermPrice.Value.ToString("C")</dd>
+                        }
+                    </dl>
+                    @if (_cls.Coaches.Count > 0)
+                    {
+                        <hr />
+                        <h6>Coaches</h6>
+                        @foreach (var cc in _cls.Coaches)
+                        {
+                            <span class="badge @(cc.IsLead ? "bg-primary" : "bg-secondary") me-1">
+                                @cc.Coach.FullName @(cc.IsLead ? "(Lead)" : "")
+                            </span>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Enrolled Athletes</span>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => _showEnrol = !_showEnrol">
+                        @(_showEnrol ? "Cancel" : "Enrol Athlete")
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    @if (_showEnrol)
+                    {
+                        <div class="p-3 border-bottom">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-8">
+                                    <label class="form-label">Athlete</label>
+                                    <select class="form-select" @bind="_selectedAthleteId">
+                                        <option value="">-- Select --</option>
+                                        @foreach (var a in _availableAthletes)
+                                        {
+                                            <option value="@a.Id">@a.FullName</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-success w-100" @onclick="EnrolAthlete" disabled="@_saving">Enrol</button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    @if (_activeEnrolments.Count == 0)
+                    {
+                        <p class="text-muted p-3 mb-0">No athletes enrolled.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr><th>Athlete</th><th>Enrolled Date</th><th>Status</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var e in _cls.Enrolments.OrderBy(e => e.Status).ThenBy(e => e.Athlete.LastName))
+                                {
+                                    <tr>
+                                        <td><a href="/athletes/@e.AthleteId">@e.Athlete.FullName</a></td>
+                                        <td>@e.EnrolledDate.ToString("dd MMM yyyy")</td>
+                                        <td><span class="badge @GetEnrolmentBadge(e.Status)">@e.Status</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Sessions</span>
+            <button class="btn btn-sm btn-outline-primary" @onclick="CreateSession" disabled="@_saving">Add Session</button>
+        </div>
+        <div class="card-body p-0">
+            @if (_cls.Sessions.Count == 0)
+            {
+                <p class="text-muted p-3 mb-0">No sessions yet.</p>
+            }
+            else
+            {
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>Date</th><th>Status</th><th>Attendance</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in _cls.Sessions.OrderByDescending(s => s.Date))
+                        {
+                            var present = s.AttendanceRecords.Count(r => r.Status == AttendanceStatus.Present || r.Status == AttendanceStatus.Late);
+                            <tr>
+                                <td>@s.Date.ToString("dd MMM yyyy")</td>
+                                <td>
+                                    @if (s.IsCancelled)
+                                    {
+                                        <span class="badge bg-danger">Cancelled</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success">Scheduled</span>
+                                    }
+                                </td>
+                                <td>@present / @_activeEnrolments.Count marked</td>
+                                <td>
+                                    @if (!s.IsCancelled && _selectedSessionId != s.Id)
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => _selectedSessionId = s.Id">Mark Attendance</button>
+                                    }
+                                </td>
+                            </tr>
+                            @if (_selectedSessionId == s.Id)
+                            {
+                                <tr>
+                                    <td colspan="4">
+                                        <div class="p-2">
+                                            @foreach (var athlete in _activeEnrolments.Select(e => e.Athlete))
+                                            {
+                                                var record = s.AttendanceRecords.FirstOrDefault(r => r.AthleteId == athlete.Id);
+                                                <div class="d-flex align-items-center justify-content-between py-1 border-bottom">
+                                                    <span>@athlete.FullName</span>
+                                                    <div class="btn-group btn-group-sm">
+                                                        @foreach (var status in Enum.GetValues<AttendanceStatus>())
+                                                        {
+                                                            var isActive = record?.Status == status;
+                                                            <button class="btn @(isActive ? "btn-primary" : "btn-outline-secondary")"
+                                                                    @onclick="() => MarkAttendance(s.Id, athlete.Id, status)">
+                                                                @status
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
+                                            <button class="btn btn-sm btn-outline-secondary mt-2" @onclick="() => _selectedSessionId = null">Close</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool _loading = true;
+    private bool _showEnrol;
+    private bool _saving;
+    private Class? _cls;
+    private List<Enrolment> _activeEnrolments = new();
+    private List<Athlete> _allAthletes = new();
+    private List<Athlete> _availableAthletes = new();
+    private string _selectedAthleteId = string.Empty;
+    private Guid? _selectedSessionId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _allAthletes = await AthleteService.GetAllAsync();
+        await LoadClass();
+    }
+
+    private async Task LoadClass()
+    {
+        _loading = true;
+        _cls = await ClassService.GetByIdAsync(Id);
+        if (_cls is not null)
+        {
+            _activeEnrolments = _cls.Enrolments.Where(e => e.Status == EnrolmentStatus.Active).ToList();
+            RefreshAvailableAthletes();
+        }
+        _loading = false;
+    }
+
+    private void RefreshAvailableAthletes()
+    {
+        if (_cls is null) return;
+        var enrolledIds = _cls.Enrolments
+            .Where(e => e.Status == EnrolmentStatus.Active || e.Status == EnrolmentStatus.WaitingList)
+            .Select(e => e.AthleteId).ToHashSet();
+        _availableAthletes = _allAthletes.Where(a => !enrolledIds.Contains(a.Id)).ToList();
+    }
+
+    private async Task EnrolAthlete()
+    {
+        if (!Guid.TryParse(_selectedAthleteId, out var athleteId)) return;
+
+        _saving = true;
+        await ClassService.EnrolAthleteAsync(Id, athleteId);
+        _selectedAthleteId = string.Empty;
+        _showEnrol = false;
+        _saving = false;
+        await LoadClass();
+    }
+
+    private async Task CreateSession()
+    {
+        _saving = true;
+        await ClassService.CreateSessionAsync(Id, DateOnly.FromDateTime(DateTime.UtcNow));
+        _saving = false;
+        await LoadClass();
+    }
+
+    private async Task MarkAttendance(Guid sessionId, Guid athleteId, AttendanceStatus status)
+    {
+        await ClassService.MarkAttendanceAsync(sessionId, athleteId, status);
+        await LoadClass();
+    }
+
+    private string GetEnrolmentBadge(EnrolmentStatus status) => status switch
+    {
+        EnrolmentStatus.Active => "bg-success",
+        EnrolmentStatus.WaitingList => "bg-warning text-dark",
+        EnrolmentStatus.Cancelled => "bg-danger",
+        EnrolmentStatus.Completed => "bg-info",
+        _ => "bg-secondary"
+    };
+}

@@ -1,0 +1,135 @@
+@page "/invoices"
+@rendermode InteractiveServer
+@inject InvoiceService InvoiceService
+
+<PageTitle>Invoices - CheerDeck</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Invoices</h1>
+</div>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_invoices.Count == 0)
+{
+    <div class="alert alert-info">No invoices found.</div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card text-bg-success">
+                <div class="card-body py-2">
+                    <small>Paid</small>
+                    <h5 class="mb-0">@_invoices.Count(i => i.Status == InvoiceStatus.Paid)</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-primary">
+                <div class="card-body py-2">
+                    <small>Sent</small>
+                    <h5 class="mb-0">@_invoices.Count(i => i.Status == InvoiceStatus.Sent)</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-danger">
+                <div class="card-body py-2">
+                    <small>Overdue</small>
+                    <h5 class="mb-0">@_invoices.Count(i => i.Status == InvoiceStatus.Overdue)</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-secondary">
+                <div class="card-body py-2">
+                    <small>Draft</small>
+                    <h5 class="mb-0">@_invoices.Count(i => i.Status == InvoiceStatus.Draft)</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <select class="form-select w-auto" @bind="_statusFilter" @bind:after="ApplyFilter">
+            <option value="">All Statuses</option>
+            @foreach (var s in Enum.GetValues<InvoiceStatus>())
+            {
+                <option value="@s">@s</option>
+            }
+        </select>
+    </div>
+
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Invoice #</th>
+                <th>Type</th>
+                <th>Billed To</th>
+                <th>Issue Date</th>
+                <th>Due Date</th>
+                <th>Total</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var inv in _filtered)
+            {
+                <tr>
+                    <td>@inv.InvoiceNumber</td>
+                    <td>@inv.Type</td>
+                    <td>@(inv.Guardian?.FullName ?? inv.Coach?.FullName ?? "-")</td>
+                    <td>@inv.IssueDate.ToString("dd MMM yyyy")</td>
+                    <td>@inv.DueDate.ToString("dd MMM yyyy")</td>
+                    <td>@inv.Total.ToString("C")</td>
+                    <td><span class="badge @GetStatusBadge(inv.Status)">@inv.Status</span></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private bool _loading = true;
+    private List<Invoice> _invoices = new();
+    private List<Invoice> _filtered = new();
+    private string _statusFilter = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        _invoices = await InvoiceService.GetAllAsync();
+        _filtered = _invoices;
+        _loading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrEmpty(_statusFilter))
+        {
+            _filtered = _invoices;
+        }
+        else if (Enum.TryParse<InvoiceStatus>(_statusFilter, out var status))
+        {
+            _filtered = _invoices.Where(i => i.Status == status).ToList();
+        }
+    }
+
+    private string GetStatusBadge(InvoiceStatus status) => status switch
+    {
+        InvoiceStatus.Paid => "bg-success",
+        InvoiceStatus.Sent => "bg-primary",
+        InvoiceStatus.Overdue => "bg-danger",
+        InvoiceStatus.Draft => "bg-secondary",
+        InvoiceStatus.Cancelled => "bg-dark",
+        InvoiceStatus.Refunded => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+}

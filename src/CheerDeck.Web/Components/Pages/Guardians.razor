@@ -1,0 +1,128 @@
+@page "/guardians"
+@rendermode InteractiveServer
+@inject GuardianService GuardianService
+
+<PageTitle>Guardians - CheerDeck</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Guardians</h1>
+    <button class="btn btn-primary" @onclick="() => _showForm = !_showForm">
+        @(_showForm ? "Cancel" : "Add Guardian")
+    </button>
+</div>
+
+@if (_showForm)
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">New Guardian</h5>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">First Name</label>
+                    <input class="form-control" @bind="_newGuardian.FirstName" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Last Name</label>
+                    <input class="form-control" @bind="_newGuardian.LastName" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" @bind="_newGuardian.Email" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Phone</label>
+                    <input class="form-control" @bind="_newGuardian.Phone" />
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button class="btn btn-success w-100" @onclick="CreateGuardian" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_guardians.Count == 0)
+{
+    <div class="alert alert-info">No guardians found.</div>
+}
+else
+{
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Linked Athletes</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var g in _guardians)
+            {
+                <tr>
+                    <td>@g.FullName</td>
+                    <td>@g.Email</td>
+                    <td>@(g.Phone ?? "-")</td>
+                    <td>
+                        @if (g.Athletes.Count == 0)
+                        {
+                            <span class="text-muted">None</span>
+                        }
+                        else
+                        {
+                            @foreach (var ag in g.Athletes)
+                            {
+                                <a href="/athletes/@ag.AthleteId" class="badge bg-primary text-decoration-none me-1">@ag.Athlete.FullName</a>
+                            }
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _showForm;
+    private bool _saving;
+    private List<Guardian> _guardians = new();
+    private Guardian _newGuardian = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGuardians();
+    }
+
+    private async Task LoadGuardians()
+    {
+        _loading = true;
+        _guardians = await GuardianService.GetAllAsync();
+        _loading = false;
+    }
+
+    private async Task CreateGuardian()
+    {
+        if (string.IsNullOrWhiteSpace(_newGuardian.FirstName) || string.IsNullOrWhiteSpace(_newGuardian.LastName)
+            || string.IsNullOrWhiteSpace(_newGuardian.Email))
+            return;
+
+        _saving = true;
+        await GuardianService.CreateAsync(_newGuardian);
+        _newGuardian = new Guardian();
+        _showForm = false;
+        _saving = false;
+        await LoadGuardians();
+    }
+}

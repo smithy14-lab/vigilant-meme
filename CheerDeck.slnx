@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CheerDeck.Application/CheerDeck.Application.csproj" />
+    <Project Path="src/CheerDeck.Domain/CheerDeck.Domain.csproj" />
+    <Project Path="src/CheerDeck.Infrastructure/CheerDeck.Infrastructure.csproj" />
+    <Project Path="src/CheerDeck.Web/CheerDeck.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CheerDeck.Tests/CheerDeck.Tests.csproj" />
+  </Folder>
+</Solution>
