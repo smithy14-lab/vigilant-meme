@@ -17,16 +17,16 @@ await SeedData.InitializeAsync(app.Services);
 
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseStatusCodePagesWithReExecute("/not-found");
 
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 
-app.MapStaticAssets();
+app.UseStaticFiles();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
