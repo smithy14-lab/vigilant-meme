@@ -34,6 +34,13 @@ public interface IAppDbContext
     DbSet<InvoiceLineItem> InvoiceLineItems { get; }
     DbSet<Message> Messages { get; }
     DbSet<MessageRecipient> MessageRecipients { get; }
+    DbSet<Waiver> Waivers { get; }
+    DbSet<WaiverSignature> WaiverSignatures { get; }
+    DbSet<ChatRoom> ChatRooms { get; }
+    DbSet<ChatRoomMember> ChatRoomMembers { get; }
+    DbSet<ChatMessage> ChatMessages { get; }
+    DbSet<AutomatedReminder> AutomatedReminders { get; }
+    DbSet<ReminderLog> ReminderLogs { get; }
 
     // Competition
     DbSet<Event> Events { get; }

@@ -1,5 +1,6 @@
 using CheerDeck.Infrastructure;
 using CheerDeck.Infrastructure.Data;
+using CheerDeck.Infrastructure.Hubs;
 using CheerDeck.Club.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,5 +26,7 @@ app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();

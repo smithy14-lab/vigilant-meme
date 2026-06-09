@@ -78,6 +78,10 @@ public static class DependencyInjection
         services.AddScoped<EntryService>();
         services.AddScoped<RunningOrderService>();
         services.AddScoped<ScoringService>();
+        services.AddScoped<AttendanceService>();
+        services.AddScoped<WaiverService>();
+        services.AddScoped<ChatService>();
+        services.AddScoped<ReminderService>();
 
         services.AddSignalR();
 

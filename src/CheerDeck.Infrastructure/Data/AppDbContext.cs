@@ -47,6 +47,13 @@ public class AppDbContext : IdentityDbContext<AppUser>, IAppDbContext
     public DbSet<InvoiceLineItem> InvoiceLineItems => Set<InvoiceLineItem>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<MessageRecipient> MessageRecipients => Set<MessageRecipient>();
+    public DbSet<Waiver> Waivers => Set<Waiver>();
+    public DbSet<WaiverSignature> WaiverSignatures => Set<WaiverSignature>();
+    public DbSet<ChatRoom> ChatRooms => Set<ChatRoom>();
+    public DbSet<ChatRoomMember> ChatRoomMembers => Set<ChatRoomMember>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<AutomatedReminder> AutomatedReminders => Set<AutomatedReminder>();
+    public DbSet<ReminderLog> ReminderLogs => Set<ReminderLog>();
 
     public DbSet<Event> Events => Set<Event>();
     public DbSet<EventSession> EventSessions => Set<EventSession>();
@@ -108,6 +115,13 @@ public class AppDbContext : IdentityDbContext<AppUser>, IAppDbContext
         builder.Entity<InvoiceLineItem>().HasQueryFilter(e => e.TenantId == _tenantId);
         builder.Entity<Message>().HasQueryFilter(e => e.TenantId == _tenantId);
         builder.Entity<MessageRecipient>().HasQueryFilter(e => e.TenantId == _tenantId);
+        builder.Entity<Waiver>().HasQueryFilter(e => e.TenantId == _tenantId);
+        builder.Entity<WaiverSignature>().HasQueryFilter(e => e.TenantId == _tenantId);
+        builder.Entity<ChatRoom>().HasQueryFilter(e => e.TenantId == _tenantId);
+        builder.Entity<ChatRoomMember>().HasQueryFilter(e => e.TenantId == _tenantId);
+        builder.Entity<ChatMessage>().HasQueryFilter(e => e.TenantId == _tenantId);
+        builder.Entity<AutomatedReminder>().HasQueryFilter(e => e.TenantId == _tenantId);
+        builder.Entity<ReminderLog>().HasQueryFilter(e => e.TenantId == _tenantId);
 
         builder.Entity<Event>().HasQueryFilter(e => e.TenantId == _tenantId);
         builder.Entity<EventSession>().HasQueryFilter(e => e.TenantId == _tenantId);
