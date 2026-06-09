@@ -8,12 +8,15 @@ public class EventService(IAppDbContext db, ITenantContext tenant)
 {
     public async Task<List<Event>> GetAllAsync(CancellationToken ct = default)
     {
-        return await db.Events
+        var events = await db.Events
             .Include(e => e.Sessions)
             .Include(e => e.Divisions)
             .Where(e => !e.IsDeleted)
-            .OrderByDescending(e => e.Sessions.Select(s => s.Date).DefaultIfEmpty(DateOnly.MinValue).Min())
             .ToListAsync(ct);
+
+        return events
+            .OrderByDescending(e => e.Sessions.Any() ? e.Sessions.Min(s => s.Date) : DateOnly.MinValue)
+            .ToList();
     }
 
     public async Task<Event?> GetByIdAsync(Guid id, CancellationToken ct = default)
