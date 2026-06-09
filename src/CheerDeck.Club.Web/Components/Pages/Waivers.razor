@@ -1,0 +1,210 @@
+@page "/waivers"
+@rendermode InteractiveServer
+@inject WaiverService WaiverService
+
+<PageTitle>Waivers - CheerDeck Club</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Waivers</h1>
+    <button class="btn btn-primary" @onclick="() => _showForm = !_showForm">
+        @(_showForm ? "Cancel" : "Create Waiver")
+    </button>
+</div>
+
+@if (_showForm)
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">New Waiver</h5>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Title</label>
+                    <input class="form-control" @bind="_newWaiver.Title" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Type</label>
+                    <select class="form-select" @bind="_newWaiver.Type">
+                        @foreach (var t in Enum.GetValues<WaiverType>())
+                        {
+                            <option value="@t">@t</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" @bind="_newWaiver.Status">
+                        @foreach (var s in Enum.GetValues<WaiverStatus>())
+                        {
+                            <option value="@s">@s</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="reqEnrol" @bind="_newWaiver.RequiredForEnrolment" />
+                        <label class="form-check-label" for="reqEnrol">Required for enrolment</label>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-12">
+                    <label class="form-label">Content</label>
+                    <textarea class="form-control" rows="5" @bind="_newWaiver.Content"></textarea>
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-success w-100" @onclick="CreateWaiver" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_waivers.Count == 0)
+{
+    <div class="alert alert-info">No waivers found.</div>
+}
+else
+{
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Version</th>
+                <th>Signatures</th>
+                <th>Enrolment</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var w in _waivers)
+            {
+                <tr>
+                    <td>@w.Title</td>
+                    <td>@w.Type</td>
+                    <td>
+                        <span class="badge @GetStatusBadge(w.Status)">@w.Status</span>
+                    </td>
+                    <td>v@(w.Version)</td>
+                    <td>@w.Signatures.Count</td>
+                    <td>
+                        @if (w.RequiredForEnrolment)
+                        {
+                            <span class="badge bg-info">Required</span>
+                        }
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => ViewWaiver(w.Id)">
+                            @(_selectedWaiver?.Id == w.Id ? "Hide" : "View")
+                        </button>
+                    </td>
+                </tr>
+                @if (_selectedWaiver?.Id == w.Id)
+                {
+                    <tr>
+                        <td colspan="7">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6>Signatures (@_selectedWaiver.Signatures.Count)</h6>
+                                    @if (_selectedWaiver.Signatures.Count == 0)
+                                    {
+                                        <p class="text-muted">No signatures yet.</p>
+                                    }
+                                    else
+                                    {
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Signed By</th>
+                                                    <th>Date</th>
+                                                    <th>Athlete</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var sig in _selectedWaiver.Signatures.OrderByDescending(s => s.SignedAt))
+                                                {
+                                                    <tr>
+                                                        <td>@sig.SignedByName</td>
+                                                        <td>@sig.SignedAt.ToString("dd MMM yyyy HH:mm")</td>
+                                                        <td>@(sig.Athlete?.FullName ?? "-")</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    }
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _showForm;
+    private bool _saving;
+    private List<Waiver> _waivers = new();
+    private Waiver _newWaiver = new();
+    private Waiver? _selectedWaiver;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWaivers();
+    }
+
+    private async Task LoadWaivers()
+    {
+        _loading = true;
+        _waivers = await WaiverService.GetAllAsync();
+        _loading = false;
+    }
+
+    private async Task CreateWaiver()
+    {
+        if (string.IsNullOrWhiteSpace(_newWaiver.Title))
+            return;
+
+        _saving = true;
+        await WaiverService.CreateAsync(_newWaiver);
+        _newWaiver = new Waiver();
+        _showForm = false;
+        _saving = false;
+        await LoadWaivers();
+    }
+
+    private async Task ViewWaiver(Guid waiverId)
+    {
+        if (_selectedWaiver?.Id == waiverId)
+        {
+            _selectedWaiver = null;
+            return;
+        }
+
+        _selectedWaiver = await WaiverService.GetByIdAsync(waiverId);
+    }
+
+    private static string GetStatusBadge(WaiverStatus status) => status switch
+    {
+        WaiverStatus.Active => "bg-success",
+        WaiverStatus.Archived => "bg-secondary",
+        WaiverStatus.Draft => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+}

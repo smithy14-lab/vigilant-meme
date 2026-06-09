@@ -1,0 +1,237 @@
+@page "/attendance"
+@rendermode InteractiveServer
+@inject AttendanceService AttendanceService
+@inject ClassService ClassService
+@inject AthleteService AthleteService
+
+<PageTitle>Attendance - CheerDeck Club</PageTitle>
+
+<h1 class="mb-4">Attendance</h1>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <label class="form-label">Select Class</label>
+        <select class="form-select" @bind="_selectedClassId" @bind:after="OnClassChanged">
+            <option value="">-- Select a class --</option>
+            @foreach (var c in _classes)
+            {
+                <option value="@c.Id">@c.Name (@c.DayOfWeek @c.StartTime.ToString("HH:mm"))</option>
+            }
+        </select>
+    </div>
+</div>
+
+@if (_loadingSessions)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_selectedClassId != string.Empty)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Sessions</h4>
+        <button class="btn btn-success" @onclick="CreateNewSession" disabled="@_saving">
+            @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            New Session (Today)
+        </button>
+    </div>
+
+    @if (_sessions.Count == 0)
+    {
+        <div class="alert alert-info">No sessions found for this class.</div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-md-4">
+                <div class="list-group mb-4">
+                    @foreach (var s in _sessions)
+                    {
+                        var isActive = _selectedSession?.Id == s.Id;
+                        <button type="button"
+                                class="list-group-item list-group-item-action @(isActive ? "active" : "")"
+                                @onclick="() => SelectSession(s)">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>@s.Date.ToString("dd MMM yyyy")</span>
+                                @if (s.IsCancelled)
+                                {
+                                    <span class="badge bg-danger">Cancelled</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">@s.AttendanceRecords.Count records</span>
+                                }
+                            </div>
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                @if (_selectedSession != null)
+                {
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Attendance — @_selectedSession.Date.ToString("dd MMM yyyy")</h5>
+                            <button class="btn btn-primary btn-sm" @onclick="SaveAttendance" disabled="@_saving">
+                                @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                Save Attendance
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            @if (_selectedSession.IsCancelled)
+                            {
+                                <div class="alert alert-warning mb-3">
+                                    This session was cancelled@(!string.IsNullOrEmpty(_selectedSession.CancellationReason) ? $": {_selectedSession.CancellationReason}" : ".").
+                                </div>
+                            }
+
+                            @if (_enrolledAthletes.Count == 0)
+                            {
+                                <div class="alert alert-info">No enrolled athletes for this class.</div>
+                            }
+                            else
+                            {
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Athlete</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var athlete in _enrolledAthletes)
+                                        {
+                                            <tr>
+                                                <td>@athlete.FullName</td>
+                                                <td>
+                                                    <select class="form-select form-select-sm"
+                                                            value="@GetAthleteStatus(athlete.Id)"
+                                                            @onchange="e => SetAthleteStatus(athlete.Id, e)">
+                                                        @foreach (var status in Enum.GetValues<AttendanceStatus>())
+                                                        {
+                                                            <option value="@status">@status</option>
+                                                        }
+                                                    </select>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+
+                                <div class="d-flex gap-3 mt-3">
+                                    <span class="badge bg-success fs-6">Present: @_attendanceMap.Count(x => x.Value == AttendanceStatus.Present)</span>
+                                    <span class="badge bg-danger fs-6">Absent: @_attendanceMap.Count(x => x.Value == AttendanceStatus.Absent)</span>
+                                    <span class="badge bg-warning text-dark fs-6">Late: @_attendanceMap.Count(x => x.Value == AttendanceStatus.Late)</span>
+                                    <span class="badge bg-secondary fs-6">Excused: @_attendanceMap.Count(x => x.Value == AttendanceStatus.Excused)</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool _loadingSessions;
+    private bool _saving;
+    private string _selectedClassId = string.Empty;
+    private List<Class> _classes = new();
+    private List<ClassSession> _sessions = new();
+    private ClassSession? _selectedSession;
+    private List<Athlete> _enrolledAthletes = new();
+    private Dictionary<Guid, AttendanceStatus> _attendanceMap = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _classes = await ClassService.GetAllAsync();
+    }
+
+    private async Task OnClassChanged()
+    {
+        _selectedSession = null;
+        _sessions.Clear();
+        _enrolledAthletes.Clear();
+        _attendanceMap.Clear();
+
+        if (!Guid.TryParse(_selectedClassId, out var classId))
+            return;
+
+        _loadingSessions = true;
+        _sessions = await AttendanceService.GetSessionsForClassAsync(classId);
+        _loadingSessions = false;
+    }
+
+    private async Task CreateNewSession()
+    {
+        if (!Guid.TryParse(_selectedClassId, out var classId))
+            return;
+
+        _saving = true;
+        var session = await AttendanceService.CreateSessionAsync(classId, DateOnly.FromDateTime(DateTime.Today));
+        _sessions = await AttendanceService.GetSessionsForClassAsync(classId);
+        _saving = false;
+        SelectSession(session);
+    }
+
+    private void SelectSession(ClassSession session)
+    {
+        _selectedSession = session;
+        LoadEnrolledAthletes();
+    }
+
+    private void LoadEnrolledAthletes()
+    {
+        if (_selectedSession == null || !Guid.TryParse(_selectedClassId, out var classId))
+            return;
+
+        var cls = _classes.FirstOrDefault(c => c.Id == classId);
+        if (cls == null)
+            return;
+
+        _enrolledAthletes = cls.Enrolments
+            .Where(e => e.Status == EnrolmentStatus.Active)
+            .Select(e => e.Athlete)
+            .OrderBy(a => a.LastName)
+            .ThenBy(a => a.FirstName)
+            .ToList();
+
+        _attendanceMap.Clear();
+        foreach (var athlete in _enrolledAthletes)
+        {
+            var existing = _selectedSession.AttendanceRecords
+                .FirstOrDefault(r => r.AthleteId == athlete.Id);
+            _attendanceMap[athlete.Id] = existing?.Status ?? AttendanceStatus.Present;
+        }
+    }
+
+    private string GetAthleteStatus(Guid athleteId)
+    {
+        return _attendanceMap.TryGetValue(athleteId, out var status) ? status.ToString() : AttendanceStatus.Present.ToString();
+    }
+
+    private void SetAthleteStatus(Guid athleteId, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<AttendanceStatus>(e.Value?.ToString(), out var status))
+            _attendanceMap[athleteId] = status;
+    }
+
+    private async Task SaveAttendance()
+    {
+        if (_selectedSession == null)
+            return;
+
+        _saving = true;
+        await AttendanceService.BulkMarkAttendanceAsync(_selectedSession.Id, _attendanceMap);
+        _sessions = await AttendanceService.GetSessionsForClassAsync(Guid.Parse(_selectedClassId));
+        _selectedSession = _sessions.FirstOrDefault(s => s.Id == _selectedSession.Id);
+        if (_selectedSession != null)
+            LoadEnrolledAthletes();
+        _saving = false;
+    }
+}
