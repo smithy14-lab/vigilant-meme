@@ -1,0 +1,171 @@
+@page "/parent/waivers"
+@rendermode InteractiveServer
+@inject WaiverService WaiverService
+@inject GuardianService GuardianService
+
+<PageTitle>My Waivers - CheerDeck Club</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>My Waivers</h1>
+    <a href="parent" class="btn btn-outline-secondary">Back to Dashboard</a>
+</div>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_guardian is null)
+{
+    <div class="alert alert-warning">No guardian profile found for your account.</div>
+}
+else
+{
+    <h3 class="mb-3">Pending Waivers</h3>
+
+    @if (_unsignedWaivers.Count == 0)
+    {
+        <div class="alert alert-success mb-4">All waivers have been signed.</div>
+    }
+    else
+    {
+        @foreach (var waiver in _unsignedWaivers)
+        {
+            <div class="card mb-3 border-warning">
+                <div class="card-header bg-warning bg-opacity-10 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">@waiver.Title</h5>
+                    <span class="badge bg-secondary">@waiver.Type</span>
+                </div>
+                <div class="card-body">
+                    <p class="card-text text-muted">
+                        @(waiver.Content.Length > 200 ? waiver.Content[..200] + "..." : waiver.Content)
+                    </p>
+
+                    @if (_signingWaiverId == waiver.Id)
+                    {
+                        <div class="border rounded p-3 mt-3">
+                            <h6>Confirm Your Signature</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Full Name</label>
+                                <input class="form-control" @bind="_signatureName"
+                                       placeholder="Type your full name to sign" />
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-success" @onclick="() => ConfirmSign(waiver.Id)"
+                                        disabled="@(string.IsNullOrWhiteSpace(_signatureName) || _saving)">
+                                    @if (_saving)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    Confirm Signature
+                                </button>
+                                <button class="btn btn-outline-secondary" @onclick="CancelSign" disabled="@_saving">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <button class="btn btn-warning" @onclick="() => StartSign(waiver.Id)">
+                            Sign Waiver
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    }
+
+    <h3 class="mb-3 mt-4">Signed Waivers</h3>
+
+    @if (_signedWaivers.Count == 0)
+    {
+        <div class="alert alert-info">No signed waivers yet.</div>
+    }
+    else
+    {
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Waiver</th>
+                    <th>Signed Date</th>
+                    <th>Signed By</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var sig in _signedWaivers)
+                {
+                    <tr>
+                        <td>@sig.Waiver.Title</td>
+                        <td>@sig.SignedAt.ToString("dd MMM yyyy HH:mm")</td>
+                        <td>@sig.SignedByName</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private bool _saving;
+    private Guardian? _guardian;
+    private List<Waiver> _unsignedWaivers = new();
+    private List<WaiverSignature> _signedWaivers = new();
+    private Guid? _signingWaiverId;
+    private string _signatureName = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var guardians = await GuardianService.GetAllAsync();
+        _guardian = guardians.FirstOrDefault();
+
+        if (_guardian is not null)
+        {
+            await LoadWaivers();
+        }
+
+        _loading = false;
+    }
+
+    private async Task LoadWaivers()
+    {
+        _unsignedWaivers = await WaiverService.GetUnsignedForGuardianAsync(_guardian!.Id);
+        _signedWaivers = await WaiverService.GetSignaturesForGuardianAsync(_guardian.Id);
+    }
+
+    private void StartSign(Guid waiverId)
+    {
+        _signingWaiverId = waiverId;
+        _signatureName = _guardian?.FullName ?? string.Empty;
+    }
+
+    private void CancelSign()
+    {
+        _signingWaiverId = null;
+        _signatureName = string.Empty;
+    }
+
+    private async Task ConfirmSign(Guid waiverId)
+    {
+        if (string.IsNullOrWhiteSpace(_signatureName) || _guardian is null)
+            return;
+
+        _saving = true;
+
+        try
+        {
+            await WaiverService.SignAsync(waiverId, _guardian.Id, null, _signatureName);
+            _signingWaiverId = null;
+            _signatureName = string.Empty;
+            await LoadWaivers();
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

@@ -1,0 +1,105 @@
+@page "/parent"
+@rendermode InteractiveServer
+@inject GuardianService GuardianService
+@inject AthleteService AthleteService
+@inject InvoiceService InvoiceService
+@inject WaiverService WaiverService
+
+<PageTitle>Parent Portal - CheerDeck Club</PageTitle>
+
+<h1 class="mb-4">Parent Portal</h1>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_guardian is null)
+{
+    <div class="alert alert-warning">No guardian profile found for your account.</div>
+}
+else
+{
+    <div class="alert alert-info mb-4">
+        Welcome back, <strong>@_guardian.FullName</strong>!
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">@_athleteCount</h5>
+                    <p class="card-text">Linked Athletes</p>
+                    <a href="parent/athletes" class="btn btn-sm btn-outline-primary">View Athletes</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-info">@_upcomingClassCount</h5>
+                    <p class="card-text">Upcoming Classes</p>
+                    <a href="parent/athletes" class="btn btn-sm btn-outline-info">View Schedule</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-warning">@_outstandingInvoiceCount</h5>
+                    <p class="card-text">Outstanding Invoices</p>
+                    <a href="parent/invoices" class="btn btn-sm btn-outline-warning">View Invoices</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-danger">@_unsignedWaiverCount</h5>
+                    <p class="card-text">Unsigned Waivers</p>
+                    <a href="parent/waivers" class="btn btn-sm btn-outline-danger">View Waivers</a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private Guardian? _guardian;
+    private int _athleteCount;
+    private int _upcomingClassCount;
+    private int _outstandingInvoiceCount;
+    private int _unsignedWaiverCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var guardians = await GuardianService.GetAllAsync();
+        _guardian = guardians.FirstOrDefault();
+
+        if (_guardian is not null)
+        {
+            _athleteCount = _guardian.Athletes.Count;
+
+            var invoices = await InvoiceService.GetAllAsync();
+            var guardianInvoices = invoices.Where(i => i.GuardianId == _guardian.Id).ToList();
+            _outstandingInvoiceCount = guardianInvoices.Count(i =>
+                i.Status == InvoiceStatus.Draft || i.Status == InvoiceStatus.Sent || i.Status == InvoiceStatus.Overdue);
+
+            var unsignedWaivers = await WaiverService.GetUnsignedForGuardianAsync(_guardian.Id);
+            _unsignedWaiverCount = unsignedWaivers.Count;
+
+            var athleteIds = _guardian.Athletes.Select(ag => ag.AthleteId).ToHashSet();
+            var allAthletes = await AthleteService.GetAllAsync();
+            _upcomingClassCount = allAthletes
+                .Where(a => athleteIds.Contains(a.Id))
+                .SelectMany(a => a.Enrolments)
+                .Count(e => e.Status == EnrolmentStatus.Active);
+        }
+
+        _loading = false;
+    }
+}

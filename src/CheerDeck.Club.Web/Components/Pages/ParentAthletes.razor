@@ -1,0 +1,117 @@
+@page "/parent/athletes"
+@rendermode InteractiveServer
+@inject AthleteService AthleteService
+@inject ClassService ClassService
+@inject GuardianService GuardianService
+
+<PageTitle>My Athletes - CheerDeck Club</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>My Athletes</h1>
+    <a href="parent" class="btn btn-outline-secondary">Back to Dashboard</a>
+</div>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_guardian is null)
+{
+    <div class="alert alert-warning">No guardian profile found for your account.</div>
+}
+else if (_athletes.Count == 0)
+{
+    <div class="alert alert-info">No athletes linked to your account.</div>
+}
+else
+{
+    @foreach (var athlete in _athletes)
+    {
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">@athlete.FullName</h5>
+                <span class="badge @(athlete.IsActive ? "bg-success" : "bg-secondary")">
+                    @(athlete.IsActive ? "Active" : "Inactive")
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <strong>Date of Birth:</strong> @athlete.DateOfBirth.ToString("dd MMM yyyy")
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Age:</strong> @athlete.GetAgeOnDate(DateOnly.FromDateTime(DateTime.Today))
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Level:</strong> @athlete.Level
+                    </div>
+                </div>
+
+                @{ var enrolledClasses = GetEnrolledClasses(athlete.Id); }
+                @if (enrolledClasses.Count > 0)
+                {
+                    <h6 class="mt-3">Enrolled Classes</h6>
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Class</th>
+                                <th>Day</th>
+                                <th>Time</th>
+                                <th>Venue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var cls in enrolledClasses)
+                            {
+                                <tr>
+                                    <td>@cls.Name</td>
+                                    <td>@cls.DayOfWeek</td>
+                                    <td>@cls.StartTime.ToString("HH:mm") - @cls.EndTime.ToString("HH:mm")</td>
+                                    <td>@(cls.Venue?.Name ?? "TBC")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="text-muted mt-3">No classes enrolled.</div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private Guardian? _guardian;
+    private List<Athlete> _athletes = new();
+    private List<Class> _classes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var guardians = await GuardianService.GetAllAsync();
+        _guardian = guardians.FirstOrDefault();
+
+        if (_guardian is not null)
+        {
+            var athleteIds = _guardian.Athletes.Select(ag => ag.AthleteId).ToHashSet();
+            var allAthletes = await AthleteService.GetAllAsync();
+            _athletes = allAthletes.Where(a => athleteIds.Contains(a.Id)).ToList();
+            _classes = await ClassService.GetAllAsync();
+        }
+
+        _loading = false;
+    }
+
+    private List<Class> GetEnrolledClasses(Guid athleteId)
+    {
+        return _classes
+            .Where(c => c.Enrolments.Any(e => e.AthleteId == athleteId && e.Status == EnrolmentStatus.Active))
+            .ToList();
+    }
+}

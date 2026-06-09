@@ -1,0 +1,162 @@
+@page "/parent/invoices"
+@rendermode InteractiveServer
+@inject InvoiceService InvoiceService
+@inject GuardianService GuardianService
+
+<PageTitle>My Invoices - CheerDeck Club</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>My Invoices</h1>
+    <a href="parent" class="btn btn-outline-secondary">Back to Dashboard</a>
+</div>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_guardian is null)
+{
+    <div class="alert alert-warning">No guardian profile found for your account.</div>
+}
+else
+{
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-warning">@_totalOutstanding.ToString("C")</h5>
+                    <p class="card-text">Total Outstanding</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-success">@_totalPaid.ToString("C")</h5>
+                    <p class="card-text">Total Paid</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_invoices.Count == 0)
+    {
+        <div class="alert alert-info">No invoices found.</div>
+    }
+    else
+    {
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Invoice #</th>
+                    <th>Type</th>
+                    <th>Issue Date</th>
+                    <th>Due Date</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var inv in _invoices)
+                {
+                    <tr>
+                        <td>@inv.InvoiceNumber</td>
+                        <td>@inv.Type</td>
+                        <td>@inv.IssueDate.ToString("dd MMM yyyy")</td>
+                        <td>@inv.DueDate.ToString("dd MMM yyyy")</td>
+                        <td>@inv.Total.ToString("C")</td>
+                        <td>
+                            <span class="badge @GetStatusBadgeClass(inv.Status)">@inv.Status</span>
+                        </td>
+                        <td>
+                            @if (inv.Status is InvoiceStatus.Draft or InvoiceStatus.Sent or InvoiceStatus.Overdue)
+                            {
+                                <button class="btn btn-sm btn-primary" @onclick="() => PayInvoice(inv.Id)" disabled="@_paying">
+                                    @if (_payingInvoiceId == inv.Id)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    Pay Now
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private bool _paying;
+    private Guid? _payingInvoiceId;
+    private Guardian? _guardian;
+    private List<Invoice> _invoices = new();
+    private decimal _totalOutstanding;
+    private decimal _totalPaid;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var guardians = await GuardianService.GetAllAsync();
+        _guardian = guardians.FirstOrDefault();
+
+        if (_guardian is not null)
+        {
+            await LoadInvoices();
+        }
+
+        _loading = false;
+    }
+
+    private async Task LoadInvoices()
+    {
+        var all = await InvoiceService.GetAllAsync();
+        _invoices = all
+            .Where(i => i.GuardianId == _guardian!.Id)
+            .OrderBy(i => i.Status == InvoiceStatus.Paid ? 1 : 0)
+            .ThenByDescending(i => i.IssueDate)
+            .ToList();
+
+        _totalOutstanding = _invoices
+            .Where(i => i.Status is InvoiceStatus.Draft or InvoiceStatus.Sent or InvoiceStatus.Overdue)
+            .Sum(i => i.Total);
+
+        _totalPaid = _invoices
+            .Where(i => i.Status == InvoiceStatus.Paid)
+            .Sum(i => i.Total);
+    }
+
+    private async Task PayInvoice(Guid invoiceId)
+    {
+        _paying = true;
+        _payingInvoiceId = invoiceId;
+
+        try
+        {
+            await InvoiceService.InitiatePaymentAsync(invoiceId);
+            await LoadInvoices();
+        }
+        finally
+        {
+            _paying = false;
+            _payingInvoiceId = null;
+        }
+    }
+
+    private static string GetStatusBadgeClass(InvoiceStatus status) => status switch
+    {
+        InvoiceStatus.Paid => "bg-success",
+        InvoiceStatus.Overdue => "bg-danger",
+        InvoiceStatus.Sent => "bg-warning text-dark",
+        InvoiceStatus.Draft => "bg-secondary",
+        InvoiceStatus.Cancelled => "bg-dark",
+        InvoiceStatus.Refunded => "bg-info",
+        _ => "bg-secondary"
+    };
+}
