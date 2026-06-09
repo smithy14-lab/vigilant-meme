@@ -12,7 +12,7 @@ public class EventService(IAppDbContext db, ITenantContext tenant)
             .Include(e => e.Sessions)
             .Include(e => e.Divisions)
             .Where(e => !e.IsDeleted)
-            .OrderByDescending(e => e.Sessions.Min(s => s.Date))
+            .OrderByDescending(e => e.Sessions.Select(s => s.Date).DefaultIfEmpty(DateOnly.MinValue).Min())
             .ToListAsync(ct);
     }
 
