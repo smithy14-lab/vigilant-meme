@@ -33,6 +33,43 @@ public class AthleteService(IAppDbContext db, ITenantContext tenant)
         return athlete;
     }
 
+    public async Task<Athlete> CreateWithGuardianAsync(Athlete athlete, Guardian? guardian, string? relationship, CancellationToken ct = default)
+    {
+        athlete.TenantId = tenant.TenantId;
+        athlete.CreatedBy = tenant.UserId;
+        db.Athletes.Add(athlete);
+
+        if (guardian is not null)
+        {
+            var existingGuardian = !string.IsNullOrEmpty(guardian.Email)
+                ? await db.Guardians.FirstOrDefaultAsync(g => g.Email == guardian.Email && !g.IsDeleted, ct)
+                : null;
+
+            if (existingGuardian is not null)
+            {
+                guardian = existingGuardian;
+            }
+            else
+            {
+                guardian.TenantId = tenant.TenantId;
+                guardian.CreatedBy = tenant.UserId;
+                db.Guardians.Add(guardian);
+            }
+
+            db.AthleteGuardians.Add(new AthleteGuardian
+            {
+                TenantId = tenant.TenantId,
+                AthleteId = athlete.Id,
+                GuardianId = guardian.Id,
+                Relationship = relationship ?? "Parent",
+                IsPrimaryContact = true
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+        return athlete;
+    }
+
     public async Task<Athlete> UpdateAsync(Athlete athlete, CancellationToken ct = default)
     {
         athlete.UpdatedAt = DateTime.UtcNow;

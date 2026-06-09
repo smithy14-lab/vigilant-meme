@@ -1,6 +1,7 @@
 @page "/athletes"
 @rendermode InteractiveServer
 @inject AthleteService AthleteService
+@inject GuardianService GuardianService
 
 <PageTitle>Athletes - CheerDeck Club</PageTitle>
 
@@ -18,16 +19,25 @@
             <h5 class="card-title">New Athlete</h5>
             <div class="row g-3">
                 <div class="col-md-3">
-                    <label class="form-label">First Name</label>
+                    <label class="form-label">First Name <span class="text-danger">*</span></label>
                     <input class="form-control" @bind="_newAthlete.FirstName" />
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Last Name</label>
+                    <label class="form-label">Last Name <span class="text-danger">*</span></label>
                     <input class="form-control" @bind="_newAthlete.LastName" />
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Date of Birth</label>
-                    <input type="date" class="form-control" @bind="_dobInput" />
+                    <label class="form-label">Date of Birth <span class="text-danger">*</span></label>
+                    <input type="date" class="form-control" @bind="_dobInput" @bind:after="OnDobChanged" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Gender</label>
+                    <select class="form-select" @bind="_newAthlete.Gender">
+                        <option value="">--</option>
+                        <option value="Female">Female</option>
+                        <option value="Male">Male</option>
+                        <option value="Other">Other</option>
+                    </select>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Level</label>
@@ -38,12 +48,145 @@
                         }
                     </select>
                 </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button class="btn btn-success w-100" @onclick="CreateAthlete" disabled="@_saving">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
-                        Save
-                    </button>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-4">
+                    <label class="form-label">Emergency Contact Name</label>
+                    <input class="form-control" @bind="_newAthlete.EmergencyContactName" />
                 </div>
+                <div class="col-md-4">
+                    <label class="form-label">Emergency Contact Phone</label>
+                    <input class="form-control" @bind="_newAthlete.EmergencyContactPhone" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Medical Notes</label>
+                    <input class="form-control" @bind="_newAthlete.MedicalNotes" placeholder="Allergies, conditions, etc." />
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-4">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" @bind="_newAthlete.HasMediaConsent" id="mediaConsent" />
+                        <label class="form-check-label" for="mediaConsent">Media consent (photos/video)</label>
+                    </div>
+                    <div class="form-check mt-1">
+                        <input class="form-check-input" type="checkbox" @bind="_newAthlete.HasMedicalConsent" id="medicalConsent" />
+                        <label class="form-check-label" for="medicalConsent">Medical treatment consent</label>
+                    </div>
+                </div>
+            </div>
+
+            @if (_isUnder18)
+            {
+                <hr class="my-3" />
+                <h6 class="text-danger">
+                    Parent / Guardian <span class="badge bg-danger">Required — athlete is under 18</span>
+                </h6>
+            }
+            else
+            {
+                <hr class="my-3" />
+                <h6>
+                    Parent / Guardian <span class="badge bg-secondary">Optional — athlete is 18+</span>
+                </h6>
+            }
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-12 mb-2">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="guardianMode" id="guardianNew" value="new"
+                               checked="@(_guardianMode == "new")" @onchange="@(() => _guardianMode = "new")" />
+                        <label class="form-check-label" for="guardianNew">New guardian</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="guardianMode" id="guardianExisting" value="existing"
+                               checked="@(_guardianMode == "existing")" @onchange="@(() => _guardianMode = "existing")" />
+                        <label class="form-check-label" for="guardianExisting">Link existing</label>
+                    </div>
+                    @if (!_isUnder18)
+                    {
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="guardianMode" id="guardianNone" value="none"
+                                   checked="@(_guardianMode == "none")" @onchange="@(() => _guardianMode = "none")" />
+                            <label class="form-check-label" for="guardianNone">Skip</label>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @if (_guardianMode == "new")
+            {
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">First Name @if(_isUnder18){<span class="text-danger">*</span>}</label>
+                        <input class="form-control" @bind="_newGuardian.FirstName" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Last Name @if(_isUnder18){<span class="text-danger">*</span>}</label>
+                        <input class="form-control" @bind="_newGuardian.LastName" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Email @if(_isUnder18){<span class="text-danger">*</span>}</label>
+                        <input type="email" class="form-control" @bind="_newGuardian.Email" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Phone</label>
+                        <input class="form-control" @bind="_newGuardian.Phone" />
+                    </div>
+                </div>
+                <div class="row g-3 mt-1">
+                    <div class="col-md-3">
+                        <label class="form-label">Relationship</label>
+                        <select class="form-select" @bind="_relationship">
+                            <option value="Parent">Parent</option>
+                            <option value="Mother">Mother</option>
+                            <option value="Father">Father</option>
+                            <option value="Guardian">Guardian</option>
+                            <option value="Grandparent">Grandparent</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+            }
+            else if (_guardianMode == "existing")
+            {
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Select Guardian</label>
+                        <select class="form-select" @bind="_selectedGuardianId">
+                            <option value="">-- Select --</option>
+                            @foreach (var g in _existingGuardians)
+                            {
+                                <option value="@g.Id">@g.FullName (@g.Email)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Relationship</label>
+                        <select class="form-select" @bind="_relationship">
+                            <option value="Parent">Parent</option>
+                            <option value="Mother">Mother</option>
+                            <option value="Father">Father</option>
+                            <option value="Guardian">Guardian</option>
+                            <option value="Grandparent">Grandparent</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+            }
+
+            @if (_validationError is not null)
+            {
+                <div class="alert alert-danger mt-3">@_validationError</div>
+            }
+
+            <div class="mt-3">
+                <button class="btn btn-success" @onclick="CreateAthlete" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    Save Athlete
+                </button>
             </div>
         </div>
     </div>
@@ -71,8 +214,9 @@ else
         <thead>
             <tr>
                 <th>Name</th>
-                <th>Date of Birth</th>
+                <th>Age</th>
                 <th>Level</th>
+                <th>Guardian</th>
                 <th>Status</th>
                 <th></th>
             </tr>
@@ -80,10 +224,31 @@ else
         <tbody>
             @foreach (var a in _filtered)
             {
+                var age = a.GetAgeOnDate(DateOnly.FromDateTime(DateTime.Today));
                 <tr>
                     <td>@a.FullName</td>
-                    <td>@a.DateOfBirth.ToString("dd MMM yyyy")</td>
+                    <td>
+                        @age
+                        @if (age < 18)
+                        {
+                            <span class="badge bg-info text-dark ms-1">U18</span>
+                        }
+                    </td>
                     <td>@a.Level</td>
+                    <td>
+                        @if (a.Guardians.Any())
+                        {
+                            @string.Join(", ", a.Guardians.Select(g => g.Guardian.FullName))
+                        }
+                        else if (age < 18)
+                        {
+                            <span class="text-danger">None assigned</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">-</span>
+                        }
+                    </td>
                     <td>
                         <span class="badge @(a.IsActive ? "bg-success" : "bg-secondary")">
                             @(a.IsActive ? "Active" : "Inactive")
@@ -105,9 +270,17 @@ else
     private List<Athlete> _filtered = new();
     private Athlete _newAthlete = new();
     private DateTime _dobInput = DateTime.Today.AddYears(-8);
+    private bool _isUnder18 = true;
+    private string _guardianMode = "new";
+    private Guardian _newGuardian = new();
+    private string _selectedGuardianId = string.Empty;
+    private string _relationship = "Parent";
+    private List<Guardian> _existingGuardians = new();
+    private string? _validationError;
 
     protected override async Task OnInitializedAsync()
     {
+        _existingGuardians = await GuardianService.GetAllAsync();
         await LoadAthletes();
     }
 
@@ -117,6 +290,16 @@ else
         _athletes = await AthleteService.GetAllAsync();
         FilterAthletes();
         _loading = false;
+    }
+
+    private void OnDobChanged()
+    {
+        var dob = DateOnly.FromDateTime(_dobInput);
+        var age = DateOnly.FromDateTime(DateTime.Today).DayNumber - dob.DayNumber;
+        _isUnder18 = (DateTime.Today.Year - _dobInput.Year - (DateTime.Today.DayOfYear < _dobInput.DayOfYear ? 1 : 0)) < 18;
+
+        if (_isUnder18 && _guardianMode == "none")
+            _guardianMode = "new";
     }
 
     private void FilterAthletes()
@@ -135,16 +318,52 @@ else
 
     private async Task CreateAthlete()
     {
+        _validationError = null;
+
         if (string.IsNullOrWhiteSpace(_newAthlete.FirstName) || string.IsNullOrWhiteSpace(_newAthlete.LastName))
+        {
+            _validationError = "First name and last name are required.";
             return;
+        }
+
+        if (_isUnder18 && _guardianMode == "new" &&
+            (string.IsNullOrWhiteSpace(_newGuardian.FirstName) || string.IsNullOrWhiteSpace(_newGuardian.Email)))
+        {
+            _validationError = "Guardian name and email are required for athletes under 18.";
+            return;
+        }
+
+        if (_isUnder18 && _guardianMode == "existing" && string.IsNullOrWhiteSpace(_selectedGuardianId))
+        {
+            _validationError = "Please select a guardian for this athlete (under 18).";
+            return;
+        }
 
         _saving = true;
         _newAthlete.DateOfBirth = DateOnly.FromDateTime(_dobInput);
-        await AthleteService.CreateAsync(_newAthlete);
+
+        Guardian? guardian = null;
+        if (_guardianMode == "new" && !string.IsNullOrWhiteSpace(_newGuardian.FirstName))
+        {
+            guardian = _newGuardian;
+        }
+        else if (_guardianMode == "existing" && Guid.TryParse(_selectedGuardianId, out var gId))
+        {
+            guardian = _existingGuardians.FirstOrDefault(g => g.Id == gId);
+        }
+
+        await AthleteService.CreateWithGuardianAsync(_newAthlete, guardian, _relationship);
+
         _newAthlete = new Athlete();
+        _newGuardian = new Guardian();
         _dobInput = DateTime.Today.AddYears(-8);
+        _isUnder18 = true;
+        _guardianMode = "new";
+        _selectedGuardianId = string.Empty;
+        _relationship = "Parent";
         _showForm = false;
         _saving = false;
+        _existingGuardians = await GuardianService.GetAllAsync();
         await LoadAthletes();
     }
 }

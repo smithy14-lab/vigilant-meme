@@ -1,0 +1,318 @@
+@page "/join"
+@rendermode InteractiveServer
+@inject AthleteService AthleteService
+@inject GuardianService GuardianService
+@inject WaiverService WaiverService
+
+<PageTitle>Join Our Club - CheerDeck</PageTitle>
+
+<div class="container" style="max-width: 800px;">
+    <div class="text-center mb-4">
+        <h1>Join Our Club</h1>
+        <p class="lead text-muted">Register yourself or your child as a new athlete</p>
+    </div>
+
+    @if (_submitted)
+    {
+        <div class="card border-success">
+            <div class="card-body text-center py-5">
+                <h3 class="text-success mb-3">Registration Complete!</h3>
+                <p>@_submittedAthlete!.FullName has been registered successfully.</p>
+                @if (_guardianCreated)
+                {
+                    <p class="text-muted">Guardian details have been recorded.</p>
+                }
+                @if (_waiversSigned > 0)
+                {
+                    <p class="text-muted">@_waiversSigned waiver(s) signed.</p>
+                }
+                <a href="/join" class="btn btn-outline-primary mt-3" @onclick="Reset">Register Another</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (_step == 1)
+        {
+            <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0">Step 1: Who are you registering?</h5></div>
+                <div class="card-body">
+                    <div class="d-grid gap-2 col-md-8 mx-auto">
+                        <button class="btn btn-lg btn-outline-primary" @onclick="@(() => SelectMode(false))">
+                            My child (under 18)
+                        </button>
+                        <button class="btn btn-lg btn-outline-secondary" @onclick="@(() => SelectMode(true))">
+                            Myself (18 or over)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (_step >= 2 && !_isSelfRegistration)
+        {
+            <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0">Step 2: Your Details (Parent/Guardian)</h5></div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">First Name <span class="text-danger">*</span></label>
+                            <input class="form-control" @bind="_guardian.FirstName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                            <input class="form-control" @bind="_guardian.LastName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" @bind="_guardian.Email" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input class="form-control" @bind="_guardian.Phone" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Address</label>
+                            <input class="form-control" @bind="_guardian.Address" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Relationship to Athlete</label>
+                            <select class="form-select" @bind="_relationship">
+                                <option value="Parent">Parent</option>
+                                <option value="Mother">Mother</option>
+                                <option value="Father">Father</option>
+                                <option value="Guardian">Guardian</option>
+                                <option value="Grandparent">Grandparent</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary mt-3" @onclick="GoToStep3">Next: Athlete Details</button>
+                </div>
+            </div>
+        }
+
+        @if (_step >= 3 || (_step >= 2 && _isSelfRegistration))
+        {
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">@(_isSelfRegistration ? "Step 2" : "Step 3"): Athlete Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">First Name <span class="text-danger">*</span></label>
+                            <input class="form-control" @bind="_athlete.FirstName" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                            <input class="form-control" @bind="_athlete.LastName" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date of Birth <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" @bind="_dobInput" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Gender</label>
+                            <select class="form-select" @bind="_athlete.Gender">
+                                <option value="">--</option>
+                                <option value="Female">Female</option>
+                                <option value="Male">Male</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Emergency Contact Name</label>
+                            <input class="form-control" @bind="_athlete.EmergencyContactName" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Emergency Contact Phone</label>
+                            <input class="form-control" @bind="_athlete.EmergencyContactPhone" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Medical Notes</label>
+                            <textarea class="form-control" @bind="_athlete.MedicalNotes" rows="2"
+                                      placeholder="Allergies, conditions, medications..."></textarea>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="_athlete.HasMediaConsent" id="regMediaConsent" />
+                                <label class="form-check-label" for="regMediaConsent">
+                                    I consent to photos and videos being taken during training and events
+                                </label>
+                            </div>
+                            <div class="form-check mt-1">
+                                <input class="form-check-input" type="checkbox" @bind="_athlete.HasMedicalConsent" id="regMedicalConsent" />
+                                <label class="form-check-label" for="regMedicalConsent">
+                                    I consent to first aid / emergency medical treatment if required
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary mt-3" @onclick="GoToWaivers">Next: Waivers</button>
+                </div>
+            </div>
+        }
+
+        @if (_step >= 4 || (_step >= 3 && _isSelfRegistration))
+        {
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">@(_isSelfRegistration ? "Step 3" : "Step 4"): Waivers</h5>
+                </div>
+                <div class="card-body">
+                    @if (!_requiredWaivers.Any())
+                    {
+                        <p class="text-muted">No waivers required at this time.</p>
+                    }
+                    else
+                    {
+                        @foreach (var waiver in _requiredWaivers)
+                        {
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h6>@waiver.Title <span class="badge bg-info text-dark">@waiver.Type</span></h6>
+                                    <div class="border rounded p-3 bg-light mb-2" style="max-height: 200px; overflow-y: auto;">
+                                        <small>@waiver.Content</small>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox"
+                                               checked="@_waiverConsents.GetValueOrDefault(waiver.Id)"
+                                               @onchange="@(e => _waiverConsents[waiver.Id] = (bool)(e.Value ?? false))"
+                                               id="@($"waiver-{waiver.Id}")" />
+                                        <label class="form-check-label" for="@($"waiver-{waiver.Id}")">
+                                            I have read and agree to the above
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+
+                    @if (_validationError is not null)
+                    {
+                        <div class="alert alert-danger">@_validationError</div>
+                    }
+
+                    <button class="btn btn-success btn-lg w-100 mt-2" @onclick="Submit" disabled="@_submitting">
+                        @if (_submitting) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Complete Registration
+                    </button>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private int _step = 1;
+    private bool _isSelfRegistration;
+    private Athlete _athlete = new();
+    private Guardian _guardian = new();
+    private DateTime _dobInput = DateTime.Today.AddYears(-8);
+    private string _relationship = "Parent";
+    private List<Waiver> _requiredWaivers = new();
+    private Dictionary<Guid, bool> _waiverConsents = new();
+    private string? _validationError;
+    private bool _submitting;
+    private bool _submitted;
+    private Athlete? _submittedAthlete;
+    private bool _guardianCreated;
+    private int _waiversSigned;
+
+    private void SelectMode(bool isSelf)
+    {
+        _isSelfRegistration = isSelf;
+        _step = 2;
+        if (isSelf)
+            _dobInput = DateTime.Today.AddYears(-18);
+    }
+
+    private void GoToStep3()
+    {
+        _validationError = null;
+        if (string.IsNullOrWhiteSpace(_guardian.FirstName) || string.IsNullOrWhiteSpace(_guardian.Email))
+        {
+            _validationError = "Guardian name and email are required.";
+            return;
+        }
+        _step = 3;
+    }
+
+    private async Task GoToWaivers()
+    {
+        _validationError = null;
+        if (string.IsNullOrWhiteSpace(_athlete.FirstName) || string.IsNullOrWhiteSpace(_athlete.LastName))
+        {
+            _validationError = "Athlete name is required.";
+            return;
+        }
+
+        _requiredWaivers = await WaiverService.GetActiveAsync();
+        _waiverConsents = _requiredWaivers.ToDictionary(w => w.Id, _ => false);
+        _step = _isSelfRegistration ? 3 : 4;
+    }
+
+    private async Task Submit()
+    {
+        _validationError = null;
+
+        var requiredUnsigned = _requiredWaivers
+            .Where(w => w.RequiredForEnrolment && !_waiverConsents.GetValueOrDefault(w.Id))
+            .ToList();
+
+        if (requiredUnsigned.Any())
+        {
+            _validationError = $"Please accept the following required waivers: {string.Join(", ", requiredUnsigned.Select(w => w.Title))}";
+            return;
+        }
+
+        _submitting = true;
+
+        _athlete.DateOfBirth = DateOnly.FromDateTime(_dobInput);
+        Guardian? guardian = _isSelfRegistration ? null : _guardian;
+        string? rel = _isSelfRegistration ? null : _relationship;
+
+        var created = await AthleteService.CreateWithGuardianAsync(_athlete, guardian, rel);
+
+        _waiversSigned = 0;
+        if (!_isSelfRegistration && guardian is not null)
+        {
+            var savedGuardians = await GuardianService.GetAllAsync();
+            var savedGuardian = savedGuardians.FirstOrDefault(g => g.Email == _guardian.Email);
+            if (savedGuardian is not null)
+            {
+                foreach (var (waiverId, consented) in _waiverConsents)
+                {
+                    if (consented)
+                    {
+                        await WaiverService.SignAsync(waiverId, savedGuardian.Id, created.Id,
+                            $"{savedGuardian.FirstName} {savedGuardian.LastName}");
+                        _waiversSigned++;
+                    }
+                }
+            }
+        }
+
+        _submittedAthlete = created;
+        _guardianCreated = guardian is not null;
+        _submitted = true;
+        _submitting = false;
+    }
+
+    private void Reset()
+    {
+        _step = 1;
+        _athlete = new Athlete();
+        _guardian = new Guardian();
+        _dobInput = DateTime.Today.AddYears(-8);
+        _relationship = "Parent";
+        _waiverConsents.Clear();
+        _requiredWaivers.Clear();
+        _validationError = null;
+        _submitted = false;
+        _submittedAthlete = null;
+        _guardianCreated = false;
+        _waiversSigned = 0;
+    }
+}

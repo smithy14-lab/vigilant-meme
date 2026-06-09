@@ -4,6 +4,7 @@
 @inject AthleteService AthleteService
 @inject InvoiceService InvoiceService
 @inject WaiverService WaiverService
+@inject ITenantContext TenantContext
 
 <PageTitle>Parent Portal - CheerDeck Club</PageTitle>
 
@@ -19,7 +20,11 @@
 }
 else if (_guardian is null)
 {
-    <div class="alert alert-warning">No guardian profile found for your account.</div>
+    <div class="alert alert-warning">
+        <h5>No guardian profile found for your account.</h5>
+        <p class="mb-2">If you are a parent or guardian, ask your club admin to link your account.</p>
+        <p class="mb-0">If you'd like to register a new athlete, <a href="/join">join here</a>.</p>
+    </div>
 }
 else
 {
@@ -77,8 +82,13 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var guardians = await GuardianService.GetAllAsync();
-        _guardian = guardians.FirstOrDefault();
+        var userId = TenantContext.UserId;
+        _guardian = !string.IsNullOrEmpty(userId)
+            ? await GuardianService.GetByUserIdAsync(userId)
+            : null;
+
+        // Fallback for demo: if no user-linked guardian, use first guardian
+        _guardian ??= (await GuardianService.GetAllAsync()).FirstOrDefault();
 
         if (_guardian is not null)
         {

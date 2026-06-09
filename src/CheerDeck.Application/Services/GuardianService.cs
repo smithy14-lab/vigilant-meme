@@ -15,6 +15,14 @@ public class GuardianService(IAppDbContext db, ITenantContext tenant)
             .ToListAsync(ct);
     }
 
+    public async Task<Guardian?> GetByUserIdAsync(string userId, CancellationToken ct = default)
+    {
+        return await db.Guardians
+            .Include(g => g.Athletes).ThenInclude(ag => ag.Athlete)
+                .ThenInclude(a => a.Enrolments).ThenInclude(e => e.Class)
+            .FirstOrDefaultAsync(g => g.UserId == userId && !g.IsDeleted, ct);
+    }
+
     public async Task<Guardian?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
         return await db.Guardians
