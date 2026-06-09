@@ -1,0 +1,231 @@
+@page "/athletes/{Id:guid}"
+@rendermode InteractiveServer
+@inject AthleteService AthleteService
+@inject NavigationManager Nav
+
+<PageTitle>Athlete Details - CheerDeck Club</PageTitle>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_athlete is null)
+{
+    <div class="alert alert-warning">Athlete not found.</div>
+    <a href="/athletes" class="btn btn-outline-secondary">Back to Athletes</a>
+}
+else
+{
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/athletes">Athletes</a></li>
+            <li class="breadcrumb-item active">@_athlete.FullName</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>@_athlete.FullName</h1>
+        <span class="badge fs-6 @(_athlete.IsActive ? "bg-success" : "bg-secondary")">
+            @(_athlete.IsActive ? "Active" : "Inactive")
+        </span>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Personal Information</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Date of Birth</dt>
+                        <dd class="col-sm-7">@_athlete.DateOfBirth.ToString("dd MMM yyyy")</dd>
+                        <dt class="col-sm-5">Age</dt>
+                        <dd class="col-sm-7">@_athlete.GetAgeOnDate(DateOnly.FromDateTime(DateTime.UtcNow))</dd>
+                        <dt class="col-sm-5">Gender</dt>
+                        <dd class="col-sm-7">@(_athlete.Gender ?? "Not specified")</dd>
+                        <dt class="col-sm-5">Level</dt>
+                        <dd class="col-sm-7">@_athlete.Level</dd>
+                        <dt class="col-sm-5">Media Consent</dt>
+                        <dd class="col-sm-7">@(_athlete.HasMediaConsent ? "Yes" : "No")</dd>
+                        <dt class="col-sm-5">Medical Consent</dt>
+                        <dd class="col-sm-7">@(_athlete.HasMedicalConsent ? "Yes" : "No")</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Emergency Contact</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Name</dt>
+                        <dd class="col-sm-7">@(_athlete.EmergencyContactName ?? "Not set")</dd>
+                        <dt class="col-sm-5">Phone</dt>
+                        <dd class="col-sm-7">@(_athlete.EmergencyContactPhone ?? "Not set")</dd>
+                    </dl>
+                    @if (!string.IsNullOrEmpty(_athlete.MedicalNotes))
+                    {
+                        <hr />
+                        <h6>Medical Notes</h6>
+                        <p class="mb-0 text-muted">@_athlete.MedicalNotes</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Guardians</div>
+                <div class="card-body p-0">
+                    @if (_athlete.Guardians.Count == 0)
+                    {
+                        <p class="text-muted p-3 mb-0">No guardians linked.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr><th>Name</th><th>Relationship</th><th>Primary</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var ag in _athlete.Guardians)
+                                {
+                                    <tr>
+                                        <td><a href="/guardians">@ag.Guardian.FullName</a></td>
+                                        <td>@ag.Relationship</td>
+                                        <td>@(ag.IsPrimaryContact ? "Yes" : "")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Team Memberships</div>
+                <div class="card-body p-0">
+                    @if (_athlete.TeamMemberships.Count == 0)
+                    {
+                        <p class="text-muted p-3 mb-0">Not a member of any team.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr><th>Team</th><th>Position</th><th>Alternate</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var tm in _athlete.TeamMemberships)
+                                {
+                                    <tr>
+                                        <td><a href="/teams/@tm.TeamId">@tm.Team.Name</a></td>
+                                        <td>@(tm.Position ?? "-")</td>
+                                        <td>@(tm.IsAlternate ? "Yes" : "")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Enrolments</div>
+                <div class="card-body p-0">
+                    @if (_athlete.Enrolments.Count == 0)
+                    {
+                        <p class="text-muted p-3 mb-0">No enrolments.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr><th>Class</th><th>Status</th><th>Enrolled</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var e in _athlete.Enrolments)
+                                {
+                                    <tr>
+                                        <td><a href="/classes/@e.ClassId">@e.Class.Name</a></td>
+                                        <td><span class="badge @GetEnrolmentBadge(e.Status)">@e.Status</span></td>
+                                        <td>@e.EnrolledDate.ToString("dd MMM yyyy")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Recent Attendance</div>
+                <div class="card-body p-0">
+                    @if (_athlete.AttendanceRecords.Count == 0)
+                    {
+                        <p class="text-muted p-3 mb-0">No attendance records.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr><th>Date</th><th>Status</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var ar in _athlete.AttendanceRecords.OrderByDescending(r => r.ClassSession.Date).Take(10))
+                                {
+                                    <tr>
+                                        <td>@ar.ClassSession.Date.ToString("dd MMM yyyy")</td>
+                                        <td><span class="badge @GetAttendanceBadge(ar.Status)">@ar.Status</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool _loading = true;
+    private Athlete? _athlete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _athlete = await AthleteService.GetByIdAsync(Id);
+        _loading = false;
+    }
+
+    private string GetEnrolmentBadge(EnrolmentStatus status) => status switch
+    {
+        EnrolmentStatus.Active => "bg-success",
+        EnrolmentStatus.WaitingList => "bg-warning text-dark",
+        EnrolmentStatus.Cancelled => "bg-danger",
+        EnrolmentStatus.Completed => "bg-info",
+        _ => "bg-secondary"
+    };
+
+    private string GetAttendanceBadge(AttendanceStatus status) => status switch
+    {
+        AttendanceStatus.Present => "bg-success",
+        AttendanceStatus.Late => "bg-warning text-dark",
+        AttendanceStatus.Absent => "bg-danger",
+        AttendanceStatus.Excused => "bg-info",
+        _ => "bg-secondary"
+    };
+}

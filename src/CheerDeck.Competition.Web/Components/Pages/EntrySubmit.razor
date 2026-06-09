@@ -1,0 +1,372 @@
+@page "/events/{EventId:guid}/enter"
+@rendermode InteractiveServer
+@inject EntryService EntryService
+@inject TeamService TeamService
+@inject EventService EventService
+
+<PageTitle>Submit Entry</PageTitle>
+
+<div class="container-fluid">
+    @if (loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (evt is null)
+    {
+        <div class="alert alert-warning">Event not found.</div>
+        <a href="/events" class="btn btn-outline-secondary">Back to Events</a>
+    }
+    else
+    {
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/events">Events</a></li>
+                <li class="breadcrumb-item"><a href="/events/@evt.Id">@evt.Name</a></li>
+                <li class="breadcrumb-item active">Submit Entry</li>
+            </ol>
+        </nav>
+
+        <h1 class="mb-2">Submit Entry</h1>
+        <p class="text-muted mb-4">@evt.Name &mdash; Entry deadline: @evt.EntryDeadline.ToString("d MMM yyyy")</p>
+
+        @if (submitted)
+        {
+            <div class="card border-success">
+                <div class="card-body text-center py-5">
+                    @if (submittedEntry!.EligibilityPassed)
+                    {
+                        <i class="bi bi-check-circle text-success" style="font-size:3rem"></i>
+                        <h3 class="mt-3">Entry Submitted</h3>
+                        <p class="text-muted">
+                            @submittedEntry.Team.Name has been entered into
+                            @(evt.Divisions.FirstOrDefault(d => d.Id == submittedEntry.DivisionId)?.Name ?? "the division").
+                        </p>
+                        <p>
+                            <span class="badge bg-info text-dark">@submittedEntry.Status</span>
+                            <span class="ms-2">Fee: @submittedEntry.EntryFee.ToString("C")</span>
+                        </p>
+                    }
+                    else
+                    {
+                        <i class="bi bi-x-circle text-danger" style="font-size:3rem"></i>
+                        <h3 class="mt-3">Eligibility Failed</h3>
+                        <p class="text-muted">@submittedEntry.EligibilityNotes</p>
+                    }
+                    <a href="/events/@evt.Id" class="btn btn-outline-primary mt-3">Back to Event</a>
+                </div>
+            </div>
+        }
+        else
+        {
+            @if (errorMessage is not null)
+            {
+                <div class="alert alert-danger alert-dismissible mb-3">
+                    @errorMessage
+                    <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+                </div>
+            }
+
+            <!-- Step 1: Select Division -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">1. Select Division</h5>
+                </div>
+                <div class="card-body">
+                    @if (!evt.Divisions.Any())
+                    {
+                        <p class="text-muted mb-0">No divisions available for this event.</p>
+                    }
+                    else
+                    {
+                        <div class="row g-2">
+                            @foreach (var div in evt.Divisions.OrderBy(d => d.SortOrder))
+                            {
+                                <div class="col-md-4">
+                                    <div class="card cursor-pointer @(selectedDivisionId == div.Id ? "border-primary border-2" : "")"
+                                         @onclick="() => SelectDivision(div.Id)" role="button">
+                                        <div class="card-body">
+                                            <h6 class="card-title mb-1">@div.Name</h6>
+                                            <span class="badge bg-info text-dark">@div.Level</span>
+                                            <span class="badge bg-secondary ms-1">@div.ScoresheetType</span>
+                                            @if (div.MinTeamSize.HasValue || div.MaxTeamSize.HasValue)
+                                            {
+                                                <br />
+                                                <small class="text-muted">
+                                                    Team size: @(div.MinTeamSize?.ToString() ?? "-") &ndash; @(div.MaxTeamSize?.ToString() ?? "-")
+                                                </small>
+                                            }
+                                            @if (div.EntryFeeOverride.HasValue)
+                                            {
+                                                <br />
+                                                <small class="text-muted">Fee: @div.EntryFeeOverride.Value.ToString("C")</small>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Step 2: Select Team -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">2. Select Team</h5>
+                </div>
+                <div class="card-body">
+                    @if (teams is null)
+                    {
+                        <p class="text-muted mb-0">Loading teams...</p>
+                    }
+                    else if (!teams.Any())
+                    {
+                        <p class="text-muted mb-0">No active teams in your club roster.</p>
+                    }
+                    else
+                    {
+                        <div class="row g-2">
+                            @foreach (var team in teams)
+                            {
+                                <div class="col-md-4">
+                                    <div class="card @(selectedTeamId == team.Id ? "border-primary border-2" : "")"
+                                         @onclick="() => SelectTeam(team.Id)" role="button">
+                                        <div class="card-body">
+                                            <h6 class="card-title mb-1">@team.Name</h6>
+                                            <span class="badge bg-info text-dark">@team.Level</span>
+                                            <small class="text-muted d-block mt-1">@team.Members.Count athletes</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Step 3: Eligibility Preview -->
+            @if (selectedTeam is not null && selectedDivisionId != Guid.Empty)
+            {
+                var division = evt.Divisions.FirstOrDefault(d => d.Id == selectedDivisionId);
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">3. Eligibility Preview</h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-2">
+                            <dt class="col-sm-3">Team</dt>
+                            <dd class="col-sm-9">@selectedTeam.Name</dd>
+                            <dt class="col-sm-3">Division</dt>
+                            <dd class="col-sm-9">@(division?.Name ?? "-")</dd>
+                            <dt class="col-sm-3">Team Size</dt>
+                            <dd class="col-sm-9">
+                                @selectedTeam.Members.Count athletes
+                                @if (division?.MinTeamSize.HasValue == true || division?.MaxTeamSize.HasValue == true)
+                                {
+                                    <span class="text-muted">(required: @(division.MinTeamSize?.ToString() ?? "-") &ndash; @(division.MaxTeamSize?.ToString() ?? "-"))</span>
+                                    @if (IsTeamSizeValid(division))
+                                    {
+                                        <span class="badge bg-success ms-1">OK</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger ms-1">Invalid</span>
+                                    }
+                                }
+                            </dd>
+                            <dt class="col-sm-3">Level</dt>
+                            <dd class="col-sm-9">
+                                @selectedTeam.Level
+                                @if (selectedTeam.Level == division?.Level)
+                                {
+                                    <span class="badge bg-success ms-1">Match</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning text-dark ms-1">Mismatch</span>
+                                }
+                            </dd>
+                            <dt class="col-sm-3">Head Coach</dt>
+                            <dd class="col-sm-9">@(selectedTeam.HeadCoach?.FullName ?? "Not assigned")</dd>
+                        </dl>
+
+                        @if (selectedTeam.Members.Any())
+                        {
+                            <h6 class="mt-3">Athletes</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Level</th>
+                                            <th>Position</th>
+                                            <th>Alternate</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var m in selectedTeam.Members)
+                                        {
+                                            <tr>
+                                                <td>@m.Athlete.FullName</td>
+                                                <td><span class="badge bg-info text-dark">@m.Athlete.Level</span></td>
+                                                <td>@(m.Position ?? "-")</td>
+                                                <td>
+                                                    @if (m.IsAlternate)
+                                                    {
+                                                        <span class="badge bg-secondary">Alt</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Step 4: Music -->
+            @if (selectedTeam is not null && selectedDivisionId != Guid.Empty)
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">4. Attach Music (Optional)</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (!selectedTeam.Music.Any())
+                        {
+                            <p class="text-muted mb-0">No music files uploaded for this team.</p>
+                        }
+                        else
+                        {
+                            <div class="list-group">
+                                @foreach (var music in selectedTeam.Music)
+                                {
+                                    <button type="button"
+                                            class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(selectedMusicId == music.Id ? "active" : "")"
+                                            @onclick="() => selectedMusicId = (selectedMusicId == music.Id ? null : music.Id)">
+                                        <div>
+                                            <strong>@music.FileName</strong>
+                                            @if (music.Duration.HasValue)
+                                            {
+                                                <span class="ms-2 small">@music.Duration.Value.ToString(@"m\:ss")</span>
+                                            }
+                                            @if (music.IsCurrent)
+                                            {
+                                                <span class="badge bg-primary ms-1">Current</span>
+                                            }
+                                        </div>
+                                        <div>
+                                            @if (music.LicenceVerified)
+                                            {
+                                                <span class="badge bg-success">Licensed</span>
+                                            }
+                                            else if (!string.IsNullOrEmpty(music.LicenceProof))
+                                            {
+                                                <span class="badge bg-warning text-dark">Pending</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">No Licence</span>
+                                            }
+                                        </div>
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Submit -->
+            @if (selectedTeamId != Guid.Empty && selectedDivisionId != Guid.Empty)
+            {
+                <div class="text-center mb-5">
+                    <button class="btn btn-success btn-lg px-5" @onclick="SubmitEntry" disabled="@submitting">
+                        @if (submitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            <span>Submitting...</span>
+                        }
+                        else
+                        {
+                            <span>Submit Entry</span>
+                        }
+                    </button>
+                </div>
+            }
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid EventId { get; set; }
+
+    private Event? evt;
+    private List<Team>? teams;
+    private bool loading = true;
+    private Guid selectedDivisionId;
+    private Guid selectedTeamId;
+    private Team? selectedTeam;
+    private Guid? selectedMusicId;
+    private bool submitting;
+    private bool submitted;
+    private EventEntry? submittedEntry;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        evt = await EventService.GetByIdAsync(EventId);
+        teams = await TeamService.GetAllAsync();
+        loading = false;
+    }
+
+    private void SelectDivision(Guid divisionId)
+    {
+        selectedDivisionId = divisionId;
+    }
+
+    private void SelectTeam(Guid teamId)
+    {
+        selectedTeamId = teamId;
+        selectedTeam = teams?.FirstOrDefault(t => t.Id == teamId);
+        selectedMusicId = selectedTeam?.Music.FirstOrDefault(m => m.IsCurrent)?.Id;
+    }
+
+    private bool IsTeamSizeValid(Division? division)
+    {
+        if (division is null || selectedTeam is null) return true;
+        var count = selectedTeam.Members.Count;
+        if (division.MinTeamSize.HasValue && count < division.MinTeamSize.Value) return false;
+        if (division.MaxTeamSize.HasValue && count > division.MaxTeamSize.Value) return false;
+        return true;
+    }
+
+    private async Task SubmitEntry()
+    {
+        if (selectedTeamId == Guid.Empty || selectedDivisionId == Guid.Empty) return;
+
+        submitting = true;
+        errorMessage = null;
+
+        try
+        {
+            submittedEntry = await EntryService.SubmitEntryAsync(
+                EventId, selectedDivisionId, selectedTeamId, selectedMusicId);
+            submitted = true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to submit entry: {ex.Message}";
+        }
+        finally
+        {
+            submitting = false;
+        }
+    }
+}

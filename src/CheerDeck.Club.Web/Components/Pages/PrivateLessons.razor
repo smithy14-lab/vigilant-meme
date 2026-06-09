@@ -1,0 +1,203 @@
+@page "/private-lessons"
+@rendermode InteractiveServer
+@inject PrivateLessonService PrivateLessonService
+@inject CoachService CoachService
+@inject AthleteService AthleteService
+@inject VenueService VenueService
+
+<PageTitle>Private Lessons - CheerDeck Club</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Private Lessons</h1>
+    <button class="btn btn-primary" @onclick="() => _showForm = !_showForm">
+        @(_showForm ? "Cancel" : "New Lesson")
+    </button>
+</div>
+
+@if (_showForm)
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Schedule Private Lesson</h5>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Coach</label>
+                    <select class="form-select" @bind="_selectedCoachId">
+                        <option value="">-- Select --</option>
+                        @foreach (var c in _coaches)
+                        {
+                            <option value="@c.Id">@c.FullName</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Venue</label>
+                    <select class="form-select" @bind="_selectedVenueId">
+                        <option value="">-- None --</option>
+                        @foreach (var v in _venues)
+                        {
+                            <option value="@v.Id">@v.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Start</label>
+                    <input type="datetime-local" class="form-control" @bind="_startInput" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">End</label>
+                    <input type="datetime-local" class="form-control" @bind="_endInput" />
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-md-2">
+                    <label class="form-label">Price</label>
+                    <input type="number" step="0.01" class="form-control" @bind="_price" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Athlete</label>
+                    <select class="form-select" @bind="_selectedAthleteId">
+                        <option value="">-- Select --</option>
+                        @foreach (var a in _athletes)
+                        {
+                            <option value="@a.Id">@a.FullName</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Notes</label>
+                    <input class="form-control" @bind="_notes" />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-success w-100" @onclick="CreateLesson" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_lessons.Count == 0)
+{
+    <div class="alert alert-info">No private lessons found.</div>
+}
+else
+{
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Date/Time</th>
+                <th>Coach</th>
+                <th>Athletes</th>
+                <th>Venue</th>
+                <th>Price</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var l in _lessons)
+            {
+                <tr>
+                    <td>@l.StartTime.ToString("dd MMM yyyy HH:mm") - @l.EndTime.ToString("HH:mm")</td>
+                    <td>@l.Coach.FullName</td>
+                    <td>
+                        @foreach (var pa in l.Athletes)
+                        {
+                            <a href="/athletes/@pa.AthleteId" class="badge bg-primary text-decoration-none me-1">@pa.Athlete.FullName</a>
+                        }
+                    </td>
+                    <td>@(l.Venue?.Name ?? "-")</td>
+                    <td>@l.Price.ToString("C")</td>
+                    <td><span class="badge @GetStatusBadge(l.Status)">@l.Status</span></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _showForm;
+    private bool _saving;
+    private List<PrivateLesson> _lessons = new();
+    private List<Coach> _coaches = new();
+    private List<Athlete> _athletes = new();
+    private List<Venue> _venues = new();
+
+    private string _selectedCoachId = string.Empty;
+    private string _selectedVenueId = string.Empty;
+    private string _selectedAthleteId = string.Empty;
+    private DateTime _startInput = DateTime.Today.AddHours(10);
+    private DateTime _endInput = DateTime.Today.AddHours(11);
+    private decimal _price;
+    private string? _notes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _coaches = await CoachService.GetAllAsync();
+        _athletes = await AthleteService.GetAllAsync();
+        _venues = await VenueService.GetAllAsync();
+        await LoadLessons();
+    }
+
+    private async Task LoadLessons()
+    {
+        _loading = true;
+        _lessons = await PrivateLessonService.GetAllAsync();
+        _loading = false;
+    }
+
+    private async Task CreateLesson()
+    {
+        if (!Guid.TryParse(_selectedCoachId, out var coachId)) return;
+
+        _saving = true;
+        var lesson = new PrivateLesson
+        {
+            CoachId = coachId,
+            StartTime = _startInput,
+            EndTime = _endInput,
+            Price = _price,
+            Notes = _notes
+        };
+
+        if (Guid.TryParse(_selectedVenueId, out var venueId))
+            lesson.VenueId = venueId;
+
+        var athleteIds = new List<Guid>();
+        if (Guid.TryParse(_selectedAthleteId, out var athleteId))
+            athleteIds.Add(athleteId);
+
+        await PrivateLessonService.CreateAsync(lesson, athleteIds);
+
+        _selectedCoachId = string.Empty;
+        _selectedVenueId = string.Empty;
+        _selectedAthleteId = string.Empty;
+        _startInput = DateTime.Today.AddHours(10);
+        _endInput = DateTime.Today.AddHours(11);
+        _price = 0;
+        _notes = null;
+        _showForm = false;
+        _saving = false;
+        await LoadLessons();
+    }
+
+    private string GetStatusBadge(PrivateLessonStatus status) => status switch
+    {
+        PrivateLessonStatus.Scheduled => "bg-primary",
+        PrivateLessonStatus.Completed => "bg-success",
+        PrivateLessonStatus.Cancelled => "bg-danger",
+        PrivateLessonStatus.NoShow => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+}

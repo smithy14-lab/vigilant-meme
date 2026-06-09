@@ -1,0 +1,341 @@
+@page "/events/{Id:guid}"
+@rendermode InteractiveServer
+@inject EventService EventService
+@inject EntryService EntryService
+
+<PageTitle>Event Details</PageTitle>
+
+<div class="container-fluid">
+    @if (evt is null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/events">Events</a></li>
+                <li class="breadcrumb-item active">@evt.Name</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h1>@evt.Name</h1>
+                <span class="badge @StatusBadgeClass(evt.Status) me-2">@evt.Status</span>
+                <span class="text-muted">@(evt.VenueName ?? "Venue TBD")</span>
+            </div>
+            <a href="/events/@evt.Id/enter" class="btn btn-outline-success">Submit Entry</a>
+        </div>
+
+        @if (!string.IsNullOrEmpty(evt.Description))
+        {
+            <p class="lead">@evt.Description</p>
+        }
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">@evt.Entries.Count</h5>
+                        <p class="card-text text-muted">Entries</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">@evt.Divisions.Count</h5>
+                        <p class="card-text text-muted">Divisions</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">@evt.Sessions.Count</h5>
+                        <p class="card-text text-muted">Sessions</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">@evt.EntryDeadline.ToString("d MMM")</h5>
+                        <p class="card-text text-muted">Entry Deadline</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Divisions -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Divisions</h5>
+                <button class="btn btn-sm btn-primary" @onclick="() => showDivisionForm = !showDivisionForm">
+                    Add Division
+                </button>
+            </div>
+            <div class="card-body">
+                @if (showDivisionForm)
+                {
+                    <EditForm Model="newDivision" OnValidSubmit="AddDivision" FormName="addDivision" class="mb-3">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label">Name</label>
+                                <InputText class="form-control" @bind-Value="newDivision.Name" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Level</label>
+                                <InputSelect class="form-select" @bind-Value="newDivision.Level">
+                                    @foreach (var level in Enum.GetValues<CheerLevel>())
+                                    {
+                                        <option value="@level">@level</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Scoresheet</label>
+                                <InputSelect class="form-select" @bind-Value="newDivision.ScoresheetType">
+                                    @foreach (var st in Enum.GetValues<ScoresheetType>())
+                                    {
+                                        <option value="@st">@st</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label">Min</label>
+                                <InputNumber class="form-control" @bind-Value="newDivision.MinTeamSize" />
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label">Max</label>
+                                <InputNumber class="form-control" @bind-Value="newDivision.MaxTeamSize" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Fee Override</label>
+                                <InputNumber class="form-control" @bind-Value="newDivision.EntryFeeOverride" />
+                            </div>
+                            <div class="col-md-1">
+                                <button type="submit" class="btn btn-success w-100">Add</button>
+                            </div>
+                        </div>
+                    </EditForm>
+                }
+
+                @if (!evt.Divisions.Any())
+                {
+                    <p class="text-muted mb-0">No divisions configured yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Level</th>
+                                    <th>Scoresheet</th>
+                                    <th>Team Size</th>
+                                    <th>Entries</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var div in evt.Divisions.OrderBy(d => d.SortOrder))
+                                {
+                                    <tr>
+                                        <td>@div.Name</td>
+                                        <td><span class="badge bg-info text-dark">@div.Level</span></td>
+                                        <td>@div.ScoresheetType</td>
+                                        <td>@(div.MinTeamSize?.ToString() ?? "-") - @(div.MaxTeamSize?.ToString() ?? "-")</td>
+                                        <td>@div.Entries.Count</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Sessions -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Sessions</h5>
+                <button class="btn btn-sm btn-primary" @onclick="() => showSessionForm = !showSessionForm">
+                    Add Session
+                </button>
+            </div>
+            <div class="card-body">
+                @if (showSessionForm)
+                {
+                    <EditForm Model="newSession" OnValidSubmit="AddSession" FormName="addSession" class="mb-3">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label">Name</label>
+                                <InputText class="form-control" @bind-Value="newSession.Name" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Date</label>
+                                <InputDate class="form-control" @bind-Value="newSession.Date" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Sort Order</label>
+                                <InputNumber class="form-control" @bind-Value="newSession.SortOrder" />
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-success">Add Session</button>
+                            </div>
+                        </div>
+                    </EditForm>
+                }
+
+                @if (!evt.Sessions.Any())
+                {
+                    <p class="text-muted mb-0">No sessions scheduled yet.</p>
+                }
+                else
+                {
+                    @foreach (var session in evt.Sessions.OrderBy(s => s.SortOrder))
+                    {
+                        <div class="mb-3">
+                            <h6>@session.Name <small class="text-muted">@session.Date.ToString("d MMM yyyy")</small></h6>
+                            @if (session.Blocks.Any())
+                            {
+                                <ul class="list-group list-group-flush">
+                                    @foreach (var block in session.Blocks.OrderBy(b => b.SortOrder))
+                                    {
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            @block.Name
+                                            <span class="badge bg-secondary">@block.RunningOrder.Count entries</span>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p class="text-muted small ms-3">No blocks in this session.</p>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Entries -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Entries</h5>
+            </div>
+            <div class="card-body">
+                @if (entries is null)
+                {
+                    <p class="text-muted">Loading entries...</p>
+                }
+                else if (!entries.Any())
+                {
+                    <p class="text-muted mb-0">No entries submitted yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Team</th>
+                                    <th>Division</th>
+                                    <th>Status</th>
+                                    <th>Eligible</th>
+                                    <th>Fee</th>
+                                    <th>Submitted</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var entry in entries)
+                                {
+                                    <tr>
+                                        <td>@entry.Team.Name</td>
+                                        <td>@entry.Division.Name</td>
+                                        <td><span class="badge @EntryStatusBadge(entry.Status)">@entry.Status</span></td>
+                                        <td>
+                                            @if (entry.EligibilityPassed)
+                                            {
+                                                <span class="text-success">Pass</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-danger" title="@entry.EligibilityNotes">Fail</span>
+                                            }
+                                        </td>
+                                        <td>@entry.EntryFee.ToString("C")</td>
+                                        <td>@entry.SubmittedAt.ToString("g")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private Event? evt;
+    private List<EventEntry>? entries;
+    private Division newDivision = new();
+    private EventSession newSession = new() { Date = DateOnly.FromDateTime(DateTime.Today) };
+    private bool showDivisionForm;
+    private bool showSessionForm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        evt = await EventService.GetByIdAsync(Id);
+        entries = await EntryService.GetEntriesForEventAsync(Id);
+    }
+
+    private async Task AddDivision()
+    {
+        newDivision.SortOrder = evt!.Divisions.Count + 1;
+        await EventService.AddDivisionAsync(Id, newDivision);
+        newDivision = new();
+        evt = await EventService.GetByIdAsync(Id);
+        showDivisionForm = false;
+    }
+
+    private async Task AddSession()
+    {
+        await EventService.AddSessionAsync(Id, newSession);
+        newSession = new() { Date = DateOnly.FromDateTime(DateTime.Today) };
+        evt = await EventService.GetByIdAsync(Id);
+        showSessionForm = false;
+    }
+
+    private static string StatusBadgeClass(EventStatus status) => status switch
+    {
+        EventStatus.Draft => "bg-secondary",
+        EventStatus.Published => "bg-info text-dark",
+        EventStatus.EntriesOpen => "bg-success",
+        EventStatus.EntriesClosed => "bg-warning text-dark",
+        EventStatus.InProgress => "bg-primary",
+        EventStatus.Completed => "bg-dark",
+        EventStatus.Cancelled => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private static string EntryStatusBadge(EntryStatus status) => status switch
+    {
+        EntryStatus.Pending => "bg-secondary",
+        EntryStatus.EligibilityChecked => "bg-info text-dark",
+        EntryStatus.PaymentPending => "bg-warning text-dark",
+        EntryStatus.Confirmed => "bg-success",
+        EntryStatus.Withdrawn => "bg-dark",
+        EntryStatus.Rejected => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

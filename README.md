@@ -1,64 +1,79 @@
 # CheerDeck
 
-A SaaS platform for the UK cheerleading market combining club management and competition systems in a single codebase.
+Two connected products for the UK cheerleading market, sharing one backend and database.
+
+## Products
+
+### CheerDeck Club (port 5200)
+Club management app for coaches and parents. Manage athletes, classes, bookings, attendance, invoicing, messaging.
+
+### CheerDeck Competitions (port 5300)
+Competition management app for event producers, judges, and coaches. Event setup, entries, running order, live scoring, results, leaderboards.
+
+### CheerDeck API (port 5100)
+Shared REST API backend. Powers both web apps and future mobile apps (Android/iOS via MAUI Blazor Hybrid).
 
 ## Prerequisites
 
-- .NET 10 SDK (10.0.x)
+- .NET 9 SDK (9.0.x)
 - (Optional) SQL Server for persistent storage
 
 ## Quick Start
 
+Run either app independently — each has its own seed data:
+
 ```bash
-# Clone and run
-cd src/CheerDeck.Web
+# Club app
+cd src/CheerDeck.Club.Web
 dotnet run
+# Open http://localhost:5200
+
+# Competition app (separate terminal)
+cd src/CheerDeck.Competition.Web
+dotnet run
+# Open http://localhost:5300
+
+# API only
+cd src/CheerDeck.Api
+dotnet run
+# http://localhost:5100/api/...
 ```
-
-The app starts with an in-memory database pre-seeded with demo data:
-
-- **Stardust Cheer Academy** (demo club) - coaches, athletes, guardians, classes, teams
-- **UK Cheer Championships** (demo event producer) - event, divisions, scoresheet templates, judge panel
-
-Navigate to `https://localhost:5001` (or the port shown in console output).
 
 ## Demo Accounts
 
-| Role | Email | Password |
-|------|-------|----------|
-| Club Owner | clubowner@stardust.co.uk | Club0wner! |
-| Coach | coach@stardust.co.uk | C0ach1ng! |
-| Guardian | parent@example.co.uk | Par3nt! |
-| Event Producer | producer@ukcc.co.uk | Produc3r! |
-| Judge | judge@ukcc.co.uk | Judg3! |
+| Role | Email | Password | App |
+|------|-------|----------|-----|
+| Club Owner | clubowner@stardust.co.uk | Club0wner! | Club |
+| Coach | coach@stardust.co.uk | C0ach1ng! | Club |
+| Guardian | parent@example.co.uk | Par3nt! | Club |
+| Event Producer | producer@ukcc.co.uk | Produc3r! | Competition |
+| Judge | judge@ukcc.co.uk | Judg3! | Competition |
 
 ## Project Structure
 
 ```
 CheerDeck.slnx
 src/
-  CheerDeck.Domain/           Pure domain model, no dependencies
-    Common/                   BaseEntity, Tenant, AuditEntry
-    ClubManagement/           Athletes, Coaches, Classes, Teams, Invoices, etc.
-    Competition/              Events, Divisions, Scoring, Running Order, etc.
-    Integration/              IEligibilityProvider, IMusicLicenceProvider, IPaymentGateway
+  CheerDeck.Domain/              Pure domain model, no dependencies
+  CheerDeck.Application/         Application services and interfaces
+  CheerDeck.Infrastructure/      EF Core, Identity, SignalR, Stubs
 
-  CheerDeck.Application/      Application services and interfaces
-    Services/                 Business logic (AthleteService, ScoringService, etc.)
-    Interfaces/               IAppDbContext, ITenantContext
+  CheerDeck.Api/                 Shared REST API backend
+    Controllers/                 15 API controllers
 
-  CheerDeck.Infrastructure/   EF Core, Identity, SignalR, Stubs
-    Data/                     AppDbContext, SeedData, TenantContext
-    Stubs/                    In-memory implementations of all integrations
-    Hubs/                     SignalR hubs (RunningOrder, Score, Leaderboard)
-    Identity/                 AppUser, AppRoles
+  CheerDeck.Shared.UI/           Shared Blazor components library
+    Components/                  StatusBadge, LoadingSpinner, EmptyState
 
-  CheerDeck.Web/              Blazor Server UI
-    Components/Pages/         All Blazor pages
-    Components/Layout/        Navigation, layout
+  CheerDeck.Club.Web/            Club management Blazor Server app
+    Components/Pages/            Athletes, Classes, Coaches, Teams, etc.
+
+  CheerDeck.Competition.Web/     Competition Blazor Server app
+    Components/Pages/            Events, Scoring, Results, Leaderboard, etc.
+
+  CheerDeck.Web/                 (Legacy combined app - superseded)
 
 tests/
-  CheerDeck.Tests/            xUnit tests
+  CheerDeck.Tests/               xUnit tests
 ```
 
 ## Running Tests
@@ -67,21 +82,12 @@ tests/
 dotnet test
 ```
 
-Tests cover:
-- Tenant isolation (cross-tenant data access prevention)
-- Scoring tabulation (weighted scores, deductions, ranking)
-- Offline score sync (version-based conflict resolution)
-- Service layer (CRUD, soft-delete, enrolment, waiting lists)
-- Integration stubs (eligibility, music licence, payments)
-
 ## Configuration
 
-### Database
+Each app has its own `appsettings.json`. By default all use in-memory database.
 
-By default, the app uses an in-memory database. To use SQL Server:
-
+For SQL Server, update `appsettings.json`:
 ```json
-// appsettings.json
 {
   "UseInMemoryDatabase": false,
   "ConnectionStrings": {
@@ -90,46 +96,15 @@ By default, the app uses an in-memory database. To use SQL Server:
 }
 ```
 
-Then run migrations:
-```bash
-cd src/CheerDeck.Web
-dotnet ef database update
+## Future: Mobile Apps
+
+The architecture supports MAUI Blazor Hybrid for native Android/iOS:
+```
+src/
+  CheerDeck.Club.Mobile/         Club MAUI app (shares Club.Web components)
+  CheerDeck.Competition.Mobile/  Competition MAUI app (shares Competition.Web components)
 ```
 
-### Integration Providers
+Both mobile apps would consume the API and reuse Blazor components from Shared.UI.
 
-All three external integrations default to stub implementations:
-
-```json
-{
-  "IntegrationProvider": "Stub"
-}
-```
-
-Swap to real implementations by changing the provider and adding credentials:
-- **Eligibility**: Sport:80 / SportCheer UK API
-- **Music Licensing**: ClicknClear API
-- **Payments**: Stripe API
-
-## Reset Database
-
-With in-memory database, simply restart the application. With SQL Server:
-
-```bash
-dotnet ef database drop --force
-dotnet ef database update
-```
-
-Seed data is re-applied on startup if the database is empty.
-
-## Architecture
-
-- **Modular monolith**: Single solution, separate projects per concern
-- **Multi-tenant**: EF Core global query filters enforce tenant isolation at the ORM layer
-- **Audit trail**: All entity changes are tracked (who, what, when)
-- **Soft-delete**: Personal data entities support soft-delete for GDPR compliance
-- **Real-time**: SignalR hubs for running order, live scores, and leaderboards
-- **Offline-first scoring**: Version-based score sync prevents data loss on flaky venue wifi
-
-See [DECISIONS.md](DECISIONS.md) for architectural decisions and trade-offs.
-See [STATUS.md](STATUS.md) for feature completion status.
+See [DECISIONS.md](DECISIONS.md) and [STATUS.md](STATUS.md) for details.

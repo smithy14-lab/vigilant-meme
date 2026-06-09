@@ -1,0 +1,12 @@
+<div class="text-center text-muted my-5">
+    <h5>@Message</h5>
+    @if (ChildContent != null)
+    {
+        @ChildContent
+    }
+</div>
+
+@code {
+    [Parameter] public string Message { get; set; } = "No data found.";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

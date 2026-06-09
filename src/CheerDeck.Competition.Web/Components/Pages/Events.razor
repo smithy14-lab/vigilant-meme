@@ -1,0 +1,139 @@
+@page "/events"
+@rendermode InteractiveServer
+@inject EventService EventService
+
+<PageTitle>Events</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Events</h1>
+        <button class="btn btn-primary" @onclick="() => showForm = !showForm">
+            <i class="bi bi-plus-lg"></i> New Event
+        </button>
+    </div>
+
+    @if (showForm)
+    {
+        <div class="card mb-4">
+            <div class="card-header">Create Event</div>
+            <div class="card-body">
+                <EditForm Model="newEvent" OnValidSubmit="CreateEvent" FormName="createEvent">
+                    <DataAnnotationsValidator />
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Name</label>
+                            <InputText class="form-control" @bind-Value="newEvent.Name" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Venue</label>
+                            <InputText class="form-control" @bind-Value="newEvent.VenueName" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Entry Deadline</label>
+                            <InputDate class="form-control" @bind-Value="newEvent.EntryDeadline" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Base Entry Fee</label>
+                            <InputNumber class="form-control" @bind-Value="newEvent.BaseEntryFee" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Currency</label>
+                            <InputText class="form-control" @bind-Value="newEvent.Currency" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <InputTextArea class="form-control" @bind-Value="newEvent.Description" rows="2" />
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-success" disabled="@saving">
+                                @(saving ? "Saving..." : "Create Event")
+                            </button>
+                            <button type="button" class="btn btn-secondary ms-2" @onclick="() => showForm = false">Cancel</button>
+                        </div>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+
+    @if (events is null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!events.Any())
+    {
+        <div class="alert alert-info">No events yet. Create your first event to get started.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Venue</th>
+                        <th>Status</th>
+                        <th>Entry Deadline</th>
+                        <th>Entries</th>
+                        <th>Divisions</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var evt in events)
+                    {
+                        <tr>
+                            <td><strong>@evt.Name</strong></td>
+                            <td>@(evt.VenueName ?? "TBD")</td>
+                            <td><span class="badge @StatusBadgeClass(evt.Status)">@evt.Status</span></td>
+                            <td>@evt.EntryDeadline.ToString("d MMM yyyy")</td>
+                            <td>@evt.Entries.Count</td>
+                            <td>@evt.Divisions.Count</td>
+                            <td>
+                                <a href="/events/@evt.Id" class="btn btn-sm btn-outline-primary">View</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Event>? events;
+    private Event newEvent = new() { EntryDeadline = DateOnly.FromDateTime(DateTime.Today.AddMonths(1)) };
+    private bool showForm;
+    private bool saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        events = await EventService.GetAllAsync();
+    }
+
+    private async Task CreateEvent()
+    {
+        saving = true;
+        await EventService.CreateAsync(newEvent);
+        newEvent = new() { EntryDeadline = DateOnly.FromDateTime(DateTime.Today.AddMonths(1)) };
+        events = await EventService.GetAllAsync();
+        showForm = false;
+        saving = false;
+    }
+
+    private static string StatusBadgeClass(EventStatus status) => status switch
+    {
+        EventStatus.Draft => "bg-secondary",
+        EventStatus.Published => "bg-info text-dark",
+        EventStatus.EntriesOpen => "bg-success",
+        EventStatus.EntriesClosed => "bg-warning text-dark",
+        EventStatus.InProgress => "bg-primary",
+        EventStatus.Completed => "bg-dark",
+        EventStatus.Cancelled => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

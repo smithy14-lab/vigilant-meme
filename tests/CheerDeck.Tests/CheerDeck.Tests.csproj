@@ -26,7 +26,7 @@
     <ProjectReference Include="..\..\src\CheerDeck.Domain\CheerDeck.Domain.csproj" />
     <ProjectReference Include="..\..\src\CheerDeck.Application\CheerDeck.Application.csproj" />
     <ProjectReference Include="..\..\src\CheerDeck.Infrastructure\CheerDeck.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\CheerDeck.Web\CheerDeck.Web.csproj" />
+    <ProjectReference Include="..\..\src\CheerDeck.Api\CheerDeck.Api.csproj" />
   </ItemGroup>
 
 </Project>

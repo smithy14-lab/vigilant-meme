@@ -1,0 +1,39 @@
+@* Reusable status badge component *@
+
+<span class="badge bg-@ColorClass">@Text</span>
+
+@code {
+    [Parameter] public string Text { get; set; } = "";
+    [Parameter] public string ColorClass { get; set; } = "secondary";
+
+    public static string GetEnrolmentColor(EnrolmentStatus status) => status switch
+    {
+        EnrolmentStatus.Active => "success",
+        EnrolmentStatus.WaitingList => "warning",
+        EnrolmentStatus.Cancelled => "danger",
+        EnrolmentStatus.Completed => "info",
+        _ => "secondary"
+    };
+
+    public static string GetEntryColor(EntryStatus status) => status switch
+    {
+        EntryStatus.Confirmed => "success",
+        EntryStatus.PaymentPending => "warning",
+        EntryStatus.EligibilityChecked => "info",
+        EntryStatus.Pending => "secondary",
+        EntryStatus.Rejected => "danger",
+        EntryStatus.Withdrawn => "dark",
+        _ => "secondary"
+    };
+
+    public static string GetPerformanceColor(PerformanceStatus status) => status switch
+    {
+        PerformanceStatus.Performing => "danger",
+        PerformanceStatus.OnFloor => "warning",
+        PerformanceStatus.OnDeck => "info",
+        PerformanceStatus.InWarmUp => "primary",
+        PerformanceStatus.Completed => "success",
+        PerformanceStatus.Scratched => "dark",
+        _ => "secondary"
+    };
+}

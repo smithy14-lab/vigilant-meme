@@ -1,0 +1,140 @@
+@page "/entries"
+@rendermode InteractiveServer
+@inject EventService EventService
+@inject EntryService EntryService
+
+<PageTitle>Entries</PageTitle>
+
+<div class="container-fluid">
+    <h1 class="mb-4">Entries</h1>
+
+    @if (loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!allEntries.Any())
+    {
+        <div class="alert alert-info">No entries submitted yet. Go to <a href="/events">Events</a> to submit entries.</div>
+    }
+    else
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <label class="form-label">Filter by Event</label>
+                <select class="form-select" value="@filterEventId" @onchange="OnFilterChanged">
+                    <option value="">-- All Events --</option>
+                    @foreach (var evt in events!)
+                    {
+                        <option value="@evt.Id">@evt.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <span class="text-muted">@filteredEntries.Count entries</span>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Team</th>
+                        <th>Event</th>
+                        <th>Division</th>
+                        <th>Status</th>
+                        <th>Eligible</th>
+                        <th>Fee</th>
+                        <th>Submitted</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in filteredEntries)
+                    {
+                        <tr>
+                            <td><strong>@entry.Entry.Team.Name</strong></td>
+                            <td>@entry.EventName</td>
+                            <td>@entry.Entry.Division.Name</td>
+                            <td><span class="badge @EntryStatusBadge(entry.Entry.Status)">@entry.Entry.Status</span></td>
+                            <td>
+                                @if (entry.Entry.EligibilityPassed)
+                                {
+                                    <span class="text-success">Pass</span>
+                                }
+                                else
+                                {
+                                    <span class="text-danger" title="@entry.Entry.EligibilityNotes">Fail</span>
+                                }
+                            </td>
+                            <td>@entry.Entry.EntryFee.ToString("C")</td>
+                            <td>@entry.Entry.SubmittedAt.ToString("g")</td>
+                            <td>
+                                <a href="/events/@entry.Entry.EventId" class="btn btn-sm btn-outline-primary">View Event</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private List<Event>? events;
+    private List<EntryWithEvent> allEntries = new();
+    private List<EntryWithEvent> filteredEntries = new();
+    private string filterEventId = "";
+
+    private record EntryWithEvent(EventEntry Entry, string EventName);
+
+    protected override async Task OnInitializedAsync()
+    {
+        events = await EventService.GetAllAsync();
+        foreach (var evt in events)
+        {
+            var entries = await EntryService.GetEntriesForEventAsync(evt.Id);
+            allEntries.AddRange(entries.Select(e => new EntryWithEvent(e, evt.Name)));
+        }
+
+        filteredEntries = allEntries
+            .OrderByDescending(e => e.Entry.SubmittedAt)
+            .ToList();
+
+        loading = false;
+    }
+
+    private void OnFilterChanged(ChangeEventArgs e)
+    {
+        filterEventId = e.Value?.ToString() ?? "";
+
+        if (Guid.TryParse(filterEventId, out var eventId))
+        {
+            filteredEntries = allEntries
+                .Where(en => en.Entry.EventId == eventId)
+                .OrderByDescending(en => en.Entry.SubmittedAt)
+                .ToList();
+        }
+        else
+        {
+            filteredEntries = allEntries
+                .OrderByDescending(en => en.Entry.SubmittedAt)
+                .ToList();
+        }
+    }
+
+    private static string EntryStatusBadge(EntryStatus status) => status switch
+    {
+        EntryStatus.Pending => "bg-secondary",
+        EntryStatus.EligibilityChecked => "bg-info text-dark",
+        EntryStatus.PaymentPending => "bg-warning text-dark",
+        EntryStatus.Confirmed => "bg-success",
+        EntryStatus.Withdrawn => "bg-dark",
+        EntryStatus.Rejected => "bg-danger",
+        _ => "bg-secondary"
+    };
+}
