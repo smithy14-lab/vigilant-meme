@@ -1,0 +1,259 @@
+@page "/live-scoreboard"
+@rendermode InteractiveServer
+@inject EventService EventService
+@inject ScoringService ScoringService
+@inject RunningOrderService RunningOrderService
+@implements IDisposable
+
+<PageTitle>Live Scoreboard</PageTitle>
+
+<div class="min-vh-100 bg-dark text-white p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="display-5 fw-bold mb-0">Live Scoreboard</h1>
+        <div class="d-flex gap-3 align-items-center">
+            @if (events is not null)
+            {
+                <select class="form-select form-select-lg bg-dark text-white border-secondary" style="max-width: 300px;"
+                        value="@selectedEventId" @onchange="OnEventSelected">
+                    <option value="">-- Select Event --</option>
+                    @foreach (var evt in events)
+                    {
+                        <option value="@evt.Id">@evt.Name</option>
+                    }
+                </select>
+
+                @if (selectedEvent is not null)
+                {
+                    <select class="form-select form-select-lg bg-dark text-white border-secondary" style="max-width: 300px;"
+                            value="@selectedDivisionId" @onchange="OnDivisionSelected">
+                        <option value="">-- Select Division --</option>
+                        @foreach (var div in selectedEvent.Divisions.OrderBy(d => d.SortOrder))
+                        {
+                            <option value="@div.Id">@div.Name (@div.Level)</option>
+                        }
+                    </select>
+                }
+            }
+        </div>
+    </div>
+
+    @if (events is null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-light" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (selectedEvent is not null && selectedDivisionId != Guid.Empty)
+    {
+        @if (currentlyPerforming is not null)
+        {
+            <div class="text-center mb-4 py-4 rounded" style="background: linear-gradient(135deg, #1a1a2e, #16213e);">
+                <p class="text-uppercase text-secondary mb-1" style="letter-spacing: 3px; font-size: 1.1rem;">Now Performing</p>
+                <h2 class="display-3 fw-bold text-warning mb-0">@currentlyPerforming</h2>
+            </div>
+        }
+
+        @if (loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-light" role="status"></div>
+            </div>
+        }
+        else if (results is null || !results.Any())
+        {
+            <div class="text-center py-5">
+                <h3 class="text-secondary">No released results yet</h3>
+                <p class="text-secondary">Results will appear here once scores are released.</p>
+            </div>
+        }
+        else
+        {
+            var divisionName = selectedEvent.Divisions.FirstOrDefault(d => d.Id == selectedDivisionId)?.Name;
+            <h2 class="text-center mb-4 display-6">@divisionName</h2>
+
+            <div class="table-responsive">
+                <table class="table table-dark table-borderless align-middle" style="font-size: 1.4rem;">
+                    <thead>
+                        <tr class="border-bottom border-secondary">
+                            <th style="width: 80px;" class="text-center">Rank</th>
+                            <th>Team Name</th>
+                            <th class="text-end" style="width: 200px;">Final Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in results)
+                        {
+                            <tr class="@RankRowClass(r.Rank)" style="@RankRowStyle(r.Rank)">
+                                <td class="text-center">
+                                    @if (r.Rank is >= 1 and <= 3)
+                                    {
+                                        <span class="fw-bold" style="font-size: 1.8rem; @RankColor(r.Rank)">@RankIcon(r.Rank)</span>
+                                    }
+                                    else if (r.Rank > 0)
+                                    {
+                                        <span class="fw-bold">@r.Rank</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-secondary">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="fw-bold" style="font-size: @(r.Rank is >= 1 and <= 3 ? "1.6rem" : "1.4rem");">
+                                        @r.Entry.Team.Name
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <span class="fw-bold" style="font-size: @(r.Rank is >= 1 and <= 3 ? "1.8rem" : "1.4rem");">
+                                        @r.FinalScore.ToString("F2")
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+    else if (selectedEvent is not null)
+    {
+        <div class="text-center py-5">
+            <h3 class="text-secondary">Select a division to display results</h3>
+        </div>
+    }
+    else
+    {
+        <div class="text-center py-5">
+            <h3 class="text-secondary">Select an event to get started</h3>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Event>? events;
+    private Event? selectedEvent;
+    private Guid selectedEventId;
+    private Guid selectedDivisionId;
+    private List<TabulatedResult>? results;
+    private string? currentlyPerforming;
+    private bool loading;
+    private System.Threading.Timer? refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        events = await EventService.GetAllAsync();
+        refreshTimer = new System.Threading.Timer(async _ => await RefreshData(), null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
+
+    private async Task RefreshData()
+    {
+        if (selectedEvent is null || selectedDivisionId == Guid.Empty) return;
+
+        try
+        {
+            results = await ScoringService.GetResultsAsync(selectedDivisionId, releasedOnly: true);
+            await UpdateCurrentlyPerforming();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            // Silently handle refresh errors to keep the display stable
+        }
+    }
+
+    private async Task UpdateCurrentlyPerforming()
+    {
+        currentlyPerforming = null;
+
+        if (selectedEvent is null) return;
+
+        foreach (var session in selectedEvent.Sessions)
+        {
+            foreach (var block in session.Blocks)
+            {
+                var entries = await RunningOrderService.GetForBlockAsync(block.Id);
+                var performing = entries.FirstOrDefault(e => e.Status == PerformanceStatus.Performing);
+                if (performing is not null)
+                {
+                    currentlyPerforming = performing.Entry.Team.Name;
+                    return;
+                }
+            }
+        }
+    }
+
+    private async Task OnEventSelected(ChangeEventArgs e)
+    {
+        results = null;
+        selectedDivisionId = Guid.Empty;
+        currentlyPerforming = null;
+
+        if (Guid.TryParse(e.Value?.ToString(), out var id))
+        {
+            selectedEventId = id;
+            selectedEvent = await EventService.GetByIdAsync(id);
+        }
+        else
+        {
+            selectedEventId = Guid.Empty;
+            selectedEvent = null;
+        }
+    }
+
+    private async Task OnDivisionSelected(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var id))
+        {
+            selectedDivisionId = id;
+            loading = true;
+            results = await ScoringService.GetResultsAsync(id, releasedOnly: true);
+            await UpdateCurrentlyPerforming();
+            loading = false;
+        }
+        else
+        {
+            selectedDivisionId = Guid.Empty;
+            results = null;
+            currentlyPerforming = null;
+        }
+    }
+
+    private static string RankRowClass(int rank) => rank switch
+    {
+        1 => "border-start border-4",
+        2 => "border-start border-4",
+        3 => "border-start border-4",
+        _ => ""
+    };
+
+    private static string RankRowStyle(int rank) => rank switch
+    {
+        1 => "border-color: #ffd700 !important; background-color: rgba(255, 215, 0, 0.1);",
+        2 => "border-color: #c0c0c0 !important; background-color: rgba(192, 192, 192, 0.08);",
+        3 => "border-color: #cd7f32 !important; background-color: rgba(205, 127, 50, 0.08);",
+        _ => ""
+    };
+
+    private static string RankColor(int rank) => rank switch
+    {
+        1 => "color: #ffd700;",
+        2 => "color: #c0c0c0;",
+        3 => "color: #cd7f32;",
+        _ => ""
+    };
+
+    private static string RankIcon(int rank) => rank switch
+    {
+        1 => "1st",
+        2 => "2nd",
+        3 => "3rd",
+        _ => rank.ToString()
+    };
+
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+    }
+}
