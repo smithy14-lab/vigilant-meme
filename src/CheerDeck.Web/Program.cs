@@ -20,8 +20,6 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
-app.UseStatusCodePagesWithReExecute("/not-found");
-
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
