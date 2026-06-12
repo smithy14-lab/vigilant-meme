@@ -25,6 +25,9 @@ jobs:
       - name: Build
         run: dotnet build CheerDeck.slnx --no-restore -c Release
 
+      - name: Test
+        run: dotnet test CheerDeck.slnx --no-build -c Release --verbosity normal
+
       - name: Publish API
         run: dotnet publish src/CheerDeck.Api/CheerDeck.Api.csproj -c Release -o publish/api
 

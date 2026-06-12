@@ -70,6 +70,9 @@ az webapp config appsettings set \
     --settings \
     "ConnectionStrings__DefaultConnection=$CONNECTION_STRING" \
     "UseInMemoryDatabase=false" \
+    "ASPNETCORE_ENVIRONMENT=Production" \
+    "Cors__AllowedOrigins__0=https://${CLUB_APP_NAME}.azurewebsites.net" \
+    "Cors__AllowedOrigins__1=https://${COMPETITION_APP_NAME}.azurewebsites.net" \
     "ASPNETCORE_URLS=http://+:8080"
 
 echo "Creating Club app..."
@@ -85,6 +88,7 @@ az webapp config appsettings set \
     --settings \
     "ConnectionStrings__DefaultConnection=$CONNECTION_STRING" \
     "UseInMemoryDatabase=false" \
+    "ASPNETCORE_ENVIRONMENT=Production" \
     "ASPNETCORE_URLS=http://+:8080"
 
 echo "Creating Competition app..."
@@ -100,6 +104,7 @@ az webapp config appsettings set \
     --settings \
     "ConnectionStrings__DefaultConnection=$CONNECTION_STRING" \
     "UseInMemoryDatabase=false" \
+    "ASPNETCORE_ENVIRONMENT=Production" \
     "ASPNETCORE_URLS=http://+:8080"
 
 echo ""

@@ -37,6 +37,8 @@ services:
       SendGrid__ApiKey: ""
       SendGrid__FromEmail: "noreply@cheerdeck.com"
       SendGrid__FromName: "CheerDeck"
+      Cors__AllowedOrigins__0: "http://localhost:5200"
+      Cors__AllowedOrigins__1: "http://localhost:5300"
     depends_on:
       sqlserver:
         condition: service_healthy

@@ -2,15 +2,19 @@
   "name": "CheerDeck Club",
   "short_name": "CheerDeck",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#667eea",
-  "description": "Club management for cheerleading",
+  "description": "Club management for UK cheerleading — athletes, classes, bookings, invoices, and more.",
+  "categories": ["sports", "education", "business"],
   "icons": [
     {
       "src": "favicon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

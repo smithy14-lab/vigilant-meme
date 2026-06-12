@@ -2,15 +2,19 @@
   "name": "CheerDeck Competitions",
   "short_name": "CheerDeck Comp",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#f5576c",
-  "description": "Competition management for cheerleading",
+  "description": "UK cheerleading competition management — events, entries, live scoring, and leaderboards.",
+  "categories": ["sports", "entertainment"],
   "icons": [
     {
       "src": "favicon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
