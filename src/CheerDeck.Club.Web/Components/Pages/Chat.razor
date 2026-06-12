@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @inject ChatService ChatService
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthState
 @implements IAsyncDisposable
 
 <PageTitle>Chat - CheerDeck Club</PageTitle>
@@ -167,7 +168,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _currentUserId = "current-user"; // Placeholder until auth is wired up
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        _currentUserId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
 
         var hubUrl = NavigationManager.ToAbsoluteUri("/hubs/chat");
         _hubConnection = new HubConnectionBuilder()

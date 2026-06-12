@@ -343,14 +343,24 @@
             <div class="card shadow-sm">
                 <div class="card-header bg-white py-3">
                     <h4 class="mb-0">Music Details <span class="badge bg-secondary ms-2 small">Optional</span></h4>
-                    <small class="text-muted">Provide details about your routine music. File upload will be available later.</small>
+                    <small class="text-muted">Upload your routine music file and provide duration details.</small>
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-8">
-                            <label class="form-label fw-semibold">Music File Name</label>
-                            <input type="text" class="form-control" @bind="musicFileName" placeholder="e.g. Lightning_Routine_2025.mp3" />
-                            <div class="form-text">The filename you intend to upload (MP3, WAV, or M4A).</div>
+                            <label class="form-label fw-semibold">Music File</label>
+                            <InputFile OnChange="OnMusicFileSelected" accept=".mp3,.wav,.m4a,.aac" class="form-control" />
+                            <div class="form-text">MP3, WAV, AAC, or M4A — max 50 MB.</div>
+                            @if (!string.IsNullOrEmpty(musicFileName))
+                            {
+                                <div class="mt-2 text-success small">
+                                    Selected: @musicFileName (@FormatFileSize(musicFileSize))
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(musicUploadError))
+                            {
+                                <div class="mt-2 text-danger small">@musicUploadError</div>
+                            }
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Duration</label>
@@ -366,9 +376,8 @@
                     <div class="alert alert-info mt-4 mb-0 d-flex align-items-center">
                         <span class="me-2" style="font-size:1.2rem;">&#9432;</span>
                         <div>
-                            <strong>Music upload coming soon.</strong>
-                            You can provide the metadata now and upload the actual music file before the entry deadline.
-                            Music licence verification will happen upon upload.
+                            Music will be uploaded when you submit your entry.
+                            Music licence verification will happen after upload.
                         </div>
                     </div>
                 </div>
@@ -530,10 +539,13 @@
     private string? teamSizeError;
     private string? contactEmailError;
 
-    // Step 4 — Music metadata
+    // Step 4 — Music
     private string musicFileName = string.Empty;
     private int musicMinutes;
     private int musicSeconds;
+    private IBrowserFile? musicFile;
+    private long musicFileSize;
+    private string? musicUploadError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -667,6 +679,37 @@
         musicMinutes = 0;
         musicSeconds = 0;
         errorMessage = null;
+    }
+
+    private void OnMusicFileSelected(InputFileChangeEventArgs e)
+    {
+        musicUploadError = null;
+        var file = e.File;
+
+        if (file.Size > 50_000_000)
+        {
+            musicUploadError = "File must be under 50 MB.";
+            return;
+        }
+
+        var allowedExtensions = new[] { ".mp3", ".wav", ".m4a", ".aac" };
+        var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+        if (!allowedExtensions.Contains(ext))
+        {
+            musicUploadError = "Only MP3, WAV, AAC, and M4A files are allowed.";
+            return;
+        }
+
+        musicFile = file;
+        musicFileName = file.Name;
+        musicFileSize = file.Size;
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes >= 1_048_576) return $"{bytes / 1_048_576.0:F1} MB";
+        if (bytes >= 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes} B";
     }
 
     private static string StepLabel(int step) => step switch
