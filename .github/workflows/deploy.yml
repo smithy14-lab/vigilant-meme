@@ -58,6 +58,7 @@ jobs:
   deploy-api:
     needs: build
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -75,6 +76,7 @@ jobs:
   deploy-club:
     needs: build
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -92,6 +94,7 @@ jobs:
   deploy-competition:
     needs: build
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
