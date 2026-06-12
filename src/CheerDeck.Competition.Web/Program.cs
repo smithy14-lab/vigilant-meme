@@ -75,7 +75,11 @@ app.MapPost("/account/perform-register", async (
     var form = await context.Request.ReadFormAsync();
     var email = form["email"].ToString();
     var password = form["password"].ToString();
+    var confirmPassword = form["confirmPassword"].ToString();
     var fullName = form["fullName"].ToString();
+
+    if (password != confirmPassword)
+        return Results.Redirect("/account/register?error=PasswordMismatch");
 
     var user = new AppUser
     {
