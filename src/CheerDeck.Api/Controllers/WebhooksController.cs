@@ -1,8 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using CheerDeck.Application.Interfaces;
 using CheerDeck.Application.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace CheerDeck.Api.Controllers;
 
@@ -11,7 +13,9 @@ namespace CheerDeck.Api.Controllers;
 public class WebhooksController(
     IConfiguration configuration,
     InvoiceService invoiceService,
+    EntryService entryService,
     NotificationService notifications,
+    IAppDbContext db,
     ILogger<WebhooksController> logger) : ControllerBase
 {
     [HttpPost("stripe")]
@@ -41,11 +45,43 @@ public class WebhooksController(
 
             logger.LogInformation("Processing Stripe webhook: {EventType}", eventType);
 
+            var dataObj = root.GetProperty("data").GetProperty("object");
+
             switch (eventType)
             {
+                case "checkout.session.completed":
+                    var sessionId = dataObj.GetProperty("id").GetString();
+                    var sessionMetadata = dataObj.GetProperty("metadata");
+                    var paymentStatus = dataObj.TryGetProperty("payment_status", out var psProp) ? psProp.GetString() : null;
+
+                    if (paymentStatus == "paid")
+                    {
+                        if (sessionMetadata.TryGetProperty("invoiceId", out var csInvoiceIdProp) &&
+                            Guid.TryParse(csInvoiceIdProp.GetString(), out var csInvoiceId))
+                        {
+                            await invoiceService.MarkPaidAsync(csInvoiceId, sessionId!, ct);
+                            logger.LogInformation("Invoice {InvoiceId} marked as paid via checkout session", csInvoiceId);
+                        }
+
+                        if (sessionMetadata.TryGetProperty("entryId", out var entryIdProp) &&
+                            Guid.TryParse(entryIdProp.GetString(), out var entryId))
+                        {
+                            var entry = await db.EventEntries.FindAsync(new object[] { entryId }, ct);
+                            if (entry is not null)
+                            {
+                                entry.Status = CheerDeck.Domain.Competition.EntryStatus.Confirmed;
+                                entry.PaymentId = sessionId;
+                                entry.PaidAt = DateTime.UtcNow;
+                                await db.SaveChangesAsync(ct);
+                                logger.LogInformation("Entry {EntryId} confirmed as paid via checkout session", entryId);
+                            }
+                        }
+                    }
+                    break;
+
                 case "payment_intent.succeeded":
-                    var paymentId = root.GetProperty("data").GetProperty("object").GetProperty("id").GetString();
-                    var metadata = root.GetProperty("data").GetProperty("object").GetProperty("metadata");
+                    var paymentId = dataObj.GetProperty("id").GetString();
+                    var metadata = dataObj.GetProperty("metadata");
                     if (metadata.TryGetProperty("invoiceId", out var invoiceIdProp) &&
                         Guid.TryParse(invoiceIdProp.GetString(), out var invoiceId))
                     {
@@ -54,7 +90,7 @@ public class WebhooksController(
 
                         if (metadata.TryGetProperty("email", out var emailProp))
                         {
-                            var amount = root.GetProperty("data").GetProperty("object").GetProperty("amount").GetInt64() / 100m;
+                            var amount = dataObj.GetProperty("amount").GetInt64() / 100m;
                             await notifications.SendPaymentReceiptAsync(
                                 emailProp.GetString()!, "Invoice payment", amount, paymentId!, ct);
                         }
