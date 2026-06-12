@@ -54,4 +54,20 @@ public class EventService(IAppDbContext db, ITenantContext tenant)
         await db.SaveChangesAsync(ct);
         return session;
     }
+
+    public async Task<List<Event>> GetOpenEventsAsync(CancellationToken ct = default)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var events = await db.Events
+            .Include(e => e.Sessions)
+            .Include(e => e.Divisions)
+            .Where(e => !e.IsDeleted
+                        && e.Status == EventStatus.EntriesOpen
+                        && e.EntryDeadline >= today)
+            .ToListAsync(ct);
+
+        return events
+            .OrderBy(e => e.EntryDeadline)
+            .ToList();
+    }
 }

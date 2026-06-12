@@ -1,0 +1,430 @@
+@page "/reports"
+@attribute [Authorize(Roles = $"{AppRoles.ClubOwner},{AppRoles.ClubAdmin}")]
+@rendermode InteractiveServer
+@inject InvoiceService InvoiceService
+@inject AthleteService AthleteService
+@inject ClassService ClassService
+@inject AttendanceService AttendanceService
+
+<PageTitle>Reports - CheerDeck Club</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Reports</h1>
+    <small class="text-muted">Data as of @DateTime.Now.ToString("dd MMM yyyy, HH:mm")</small>
+</div>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @* ── REVENUE SUMMARY ── *@
+    <h4 class="mb-3">Revenue Summary</h4>
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card text-bg-primary h-100">
+                <div class="card-body">
+                    <small class="text-uppercase opacity-75">Total Invoiced</small>
+                    <h2 class="mb-0">@_totalInvoiced.ToString("C")</h2>
+                    <small>@_invoices.Count invoices</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-success h-100">
+                <div class="card-body">
+                    <small class="text-uppercase opacity-75">Total Paid</small>
+                    <h2 class="mb-0">@_totalPaid.ToString("C")</h2>
+                    <small>@_invoices.Count(i => i.Status == InvoiceStatus.Paid) paid</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-warning h-100">
+                <div class="card-body">
+                    <small class="text-uppercase opacity-75">Outstanding</small>
+                    <h2 class="mb-0">@_totalOutstanding.ToString("C")</h2>
+                    <small>@_invoices.Count(i => i.Status == InvoiceStatus.Sent || i.Status == InvoiceStatus.Overdue) unpaid</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-danger h-100">
+                <div class="card-body">
+                    <small class="text-uppercase opacity-75">Overdue</small>
+                    <h2 class="mb-0">@_totalOverdue.ToString("C")</h2>
+                    <small>@_invoices.Count(i => i.Status == InvoiceStatus.Overdue) overdue</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_invoicesByType.Any())
+    {
+        <div class="card mb-4">
+            <div class="card-header">Revenue by Invoice Type</div>
+            <div class="card-body p-0">
+                <table class="table table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th class="text-end">Count</th>
+                            <th class="text-end">Total</th>
+                            <th class="text-end">Paid</th>
+                            <th class="text-end">Outstanding</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in _invoicesByType)
+                        {
+                            <tr>
+                                <td>@row.Type</td>
+                                <td class="text-end">@row.Count</td>
+                                <td class="text-end">@row.Total.ToString("C")</td>
+                                <td class="text-end">@row.Paid.ToString("C")</td>
+                                <td class="text-end">@row.Outstanding.ToString("C")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    @* ── ATHLETE STATS ── *@
+    <h4 class="mb-3">Athlete Stats</h4>
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary h-100">
+                <div class="card-body">
+                    <small class="text-uppercase text-muted">Total Active Athletes</small>
+                    <h2 class="mb-0 text-primary">@_athletes.Count</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success h-100">
+                <div class="card-body">
+                    <small class="text-uppercase text-muted">New This Month</small>
+                    <h2 class="mb-0 text-success">@_newThisMonth</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info h-100">
+                <div class="card-body">
+                    <small class="text-uppercase text-muted">Average Age</small>
+                    <h2 class="mb-0 text-info">@(_athletes.Any() ? _athletes.Average(a => a.GetAgeOnDate(DateOnly.FromDateTime(DateTime.Today))).ToString("F1") : "0")</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-secondary h-100">
+                <div class="card-body">
+                    <small class="text-uppercase text-muted">With Guardians</small>
+                    <h2 class="mb-0 text-secondary">@_athletes.Count(a => a.Guardians.Any())</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_athletesByLevel.Any())
+    {
+        <div class="card mb-4">
+            <div class="card-header">Athletes by Level</div>
+            <div class="card-body p-0">
+                <table class="table table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Level</th>
+                            <th class="text-end">Count</th>
+                            <th class="text-end">% of Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in _athletesByLevel)
+                        {
+                            <tr>
+                                <td>@row.Level</td>
+                                <td class="text-end">@row.Count</td>
+                                <td class="text-end">@row.Percentage.ToString("F1")%</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    @* ── CLASS STATS ── *@
+    <h4 class="mb-3">Class Stats</h4>
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary h-100">
+                <div class="card-body">
+                    <small class="text-uppercase text-muted">Total Classes</small>
+                    <h2 class="mb-0 text-primary">@_classes.Count</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success h-100">
+                <div class="card-body">
+                    <small class="text-uppercase text-muted">Avg Enrolment</small>
+                    <h2 class="mb-0 text-success">@(_classes.Any() ? _avgEnrolment.ToString("F1") : "0")</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info h-100">
+                <div class="card-body">
+                    <small class="text-uppercase text-muted">Capacity Utilisation</small>
+                    <h2 class="mb-0 text-info">@_capacityUtilisation.ToString("F0")%</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning h-100">
+                <div class="card-body">
+                    <small class="text-uppercase text-muted">Total Capacity</small>
+                    <h2 class="mb-0 text-warning">@_classes.Sum(c => c.Capacity)</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_classSummary.Any())
+    {
+        <div class="card mb-4">
+            <div class="card-header">Class Breakdown</div>
+            <div class="card-body p-0">
+                <table class="table table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Class</th>
+                            <th>Day</th>
+                            <th>Time</th>
+                            <th>Level</th>
+                            <th class="text-end">Enrolled</th>
+                            <th class="text-end">Capacity</th>
+                            <th class="text-end">Utilisation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in _classSummary)
+                        {
+                            <tr>
+                                <td>@row.Name</td>
+                                <td>@row.Day</td>
+                                <td>@row.Time</td>
+                                <td>@(row.Level?.ToString() ?? "-")</td>
+                                <td class="text-end">@row.Enrolled</td>
+                                <td class="text-end">@row.Capacity</td>
+                                <td class="text-end">
+                                    <span class="badge @(row.UtilPct >= 90 ? "bg-danger" : row.UtilPct >= 70 ? "bg-warning text-dark" : "bg-success")">
+                                        @row.UtilPct.ToString("F0")%
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    @* ── ATTENDANCE ── *@
+    @if (_attendanceRate >= 0)
+    {
+        <h4 class="mb-3">Attendance</h4>
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card border-primary h-100">
+                    <div class="card-body">
+                        <small class="text-uppercase text-muted">Avg Attendance Rate</small>
+                        <h2 class="mb-0 text-primary">@_attendanceRate.ToString("F0")%</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-success h-100">
+                    <div class="card-body">
+                        <small class="text-uppercase text-muted">Total Sessions</small>
+                        <h2 class="mb-0 text-success">@_totalSessions</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-info h-100">
+                    <div class="card-body">
+                        <small class="text-uppercase text-muted">Total Records</small>
+                        <h2 class="mb-0 text-info">@_totalAttendanceRecords</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-danger h-100">
+                    <div class="card-body">
+                        <small class="text-uppercase text-muted">Absent / Late</small>
+                        <h2 class="mb-0 text-danger">@_absentOrLate</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private List<Invoice> _invoices = new();
+    private List<Athlete> _athletes = new();
+    private List<Class> _classes = new();
+
+    // Revenue
+    private decimal _totalInvoiced;
+    private decimal _totalPaid;
+    private decimal _totalOutstanding;
+    private decimal _totalOverdue;
+    private List<InvoiceTypeRow> _invoicesByType = new();
+
+    // Athletes
+    private int _newThisMonth;
+    private List<LevelRow> _athletesByLevel = new();
+
+    // Classes
+    private double _avgEnrolment;
+    private double _capacityUtilisation;
+    private List<ClassRow> _classSummary = new();
+
+    // Attendance
+    private double _attendanceRate = -1;
+    private int _totalSessions;
+    private int _totalAttendanceRecords;
+    private int _absentOrLate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+
+        _invoices = await InvoiceService.GetAllAsync();
+        _athletes = await AthleteService.GetAllAsync();
+        _classes = await ClassService.GetAllAsync();
+
+        CalculateRevenue();
+        CalculateAthleteStats();
+        CalculateClassStats();
+        await CalculateAttendanceAsync();
+
+        _loading = false;
+    }
+
+    private void CalculateRevenue()
+    {
+        _totalInvoiced = _invoices.Sum(i => i.Total);
+        _totalPaid = _invoices.Where(i => i.Status == InvoiceStatus.Paid).Sum(i => i.Total);
+        _totalOutstanding = _invoices
+            .Where(i => i.Status == InvoiceStatus.Sent || i.Status == InvoiceStatus.Overdue)
+            .Sum(i => i.Total);
+        _totalOverdue = _invoices.Where(i => i.Status == InvoiceStatus.Overdue).Sum(i => i.Total);
+
+        _invoicesByType = _invoices
+            .GroupBy(i => i.Type)
+            .Select(g => new InvoiceTypeRow(
+                g.Key,
+                g.Count(),
+                g.Sum(i => i.Total),
+                g.Where(i => i.Status == InvoiceStatus.Paid).Sum(i => i.Total),
+                g.Where(i => i.Status == InvoiceStatus.Sent || i.Status == InvoiceStatus.Overdue).Sum(i => i.Total)))
+            .OrderByDescending(r => r.Total)
+            .ToList();
+    }
+
+    private void CalculateAthleteStats()
+    {
+        var startOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        _newThisMonth = _athletes.Count(a => a.CreatedAt >= startOfMonth);
+
+        var total = _athletes.Count;
+        _athletesByLevel = Enum.GetValues<CheerLevel>()
+            .Select(level =>
+            {
+                var count = _athletes.Count(a => a.Level == level);
+                return new LevelRow(level, count, total > 0 ? (double)count / total * 100 : 0);
+            })
+            .Where(r => r.Count > 0)
+            .OrderByDescending(r => r.Count)
+            .ToList();
+    }
+
+    private void CalculateClassStats()
+    {
+        var activeClasses = _classes.Where(c => c.IsActive).ToList();
+
+        var enrolmentCounts = activeClasses
+            .Select(c => c.Enrolments.Count(e => e.Status == EnrolmentStatus.Active))
+            .ToList();
+
+        _avgEnrolment = enrolmentCounts.Any() ? enrolmentCounts.Average() : 0;
+
+        var totalCapacity = activeClasses.Sum(c => c.Capacity);
+        var totalEnrolled = enrolmentCounts.Sum();
+        _capacityUtilisation = totalCapacity > 0 ? (double)totalEnrolled / totalCapacity * 100 : 0;
+
+        _classSummary = activeClasses
+            .Select(c =>
+            {
+                var enrolled = c.Enrolments.Count(e => e.Status == EnrolmentStatus.Active);
+                return new ClassRow(
+                    c.Name,
+                    c.DayOfWeek.ToString(),
+                    $"{c.StartTime:HH\\:mm} - {c.EndTime:HH\\:mm}",
+                    c.Level,
+                    enrolled,
+                    c.Capacity,
+                    c.Capacity > 0 ? (double)enrolled / c.Capacity * 100 : 0);
+            })
+            .OrderByDescending(r => r.UtilPct)
+            .ToList();
+    }
+
+    private async Task CalculateAttendanceAsync()
+    {
+        var allRecords = new List<AttendanceRecord>();
+        _totalSessions = 0;
+
+        foreach (var cls in _classes)
+        {
+            var sessions = await AttendanceService.GetSessionsForClassAsync(cls.Id);
+            var nonCancelled = sessions.Where(s => !s.IsCancelled).ToList();
+            _totalSessions += nonCancelled.Count;
+
+            foreach (var session in nonCancelled)
+            {
+                allRecords.AddRange(session.AttendanceRecords);
+            }
+        }
+
+        _totalAttendanceRecords = allRecords.Count;
+
+        if (allRecords.Any())
+        {
+            var present = allRecords.Count(r => r.Status == AttendanceStatus.Present || r.Status == AttendanceStatus.Late);
+            _attendanceRate = (double)present / allRecords.Count * 100;
+            _absentOrLate = allRecords.Count(r => r.Status == AttendanceStatus.Absent || r.Status == AttendanceStatus.Late);
+        }
+        else
+        {
+            _attendanceRate = 0;
+            _absentOrLate = 0;
+        }
+    }
+
+    private record InvoiceTypeRow(InvoiceType Type, int Count, decimal Total, decimal Paid, decimal Outstanding);
+    private record LevelRow(CheerLevel Level, int Count, double Percentage);
+    private record ClassRow(string Name, string Day, string Time, CheerLevel? Level, int Enrolled, int Capacity, double UtilPct);
+}

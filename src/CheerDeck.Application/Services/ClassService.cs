@@ -101,4 +101,17 @@ public class ClassService(IAppDbContext db, ITenantContext tenant)
         }
         await db.SaveChangesAsync(ct);
     }
+
+    public async Task<List<Class>> GetAvailableClassesAsync(CancellationToken ct = default)
+    {
+        return await db.Classes
+            .Include(c => c.Venue)
+            .Include(c => c.Term)
+            .Include(c => c.Enrolments)
+            .Where(c => !c.IsDeleted && c.IsActive
+                && c.Term != null && c.Term.IsActive
+                && c.Enrolments.Count(e => e.Status == EnrolmentStatus.Active) < c.Capacity)
+            .OrderBy(c => c.DayOfWeek).ThenBy(c => c.StartTime)
+            .ToListAsync(ct);
+    }
 }

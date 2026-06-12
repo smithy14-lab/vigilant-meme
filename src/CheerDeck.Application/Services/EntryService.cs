@@ -123,4 +123,58 @@ public class EntryService(
             .OrderBy(e => e.Division.SortOrder)
             .ToListAsync(ct);
     }
+
+    public async Task<string> GenerateEntryNumberAsync(Guid eventId, Guid divisionId, CancellationToken ct = default)
+    {
+        var evt = await db.Events.FindAsync([eventId], ct);
+        var division = await db.Divisions.FindAsync([divisionId], ct);
+
+        // Build event slug: take first letters/numbers, uppercase, max 4 chars
+        var eventSlug = new string(
+            (evt?.Name ?? "EVT")
+                .ToUpperInvariant()
+                .Where(c => char.IsLetterOrDigit(c))
+                .Take(4)
+                .ToArray());
+        if (string.IsNullOrEmpty(eventSlug)) eventSlug = "EVT";
+
+        // Build division abbreviation: first letter + level digit(s), max 3 chars
+        var divName = division?.Name ?? "DIV";
+        var levelNum = division?.Level.ToString("D") ?? "0";
+        var divAbbr = (divName.Length > 0 ? divName[0].ToString().ToUpperInvariant() : "D")
+                      + "L" + levelNum;
+        if (divAbbr.Length > 4) divAbbr = divAbbr[..4];
+
+        // Count existing entries for this event+division
+        var existingCount = await db.EventEntries
+            .CountAsync(e => e.EventId == eventId && e.DivisionId == divisionId, ct);
+
+        var sequence = (existingCount + 1).ToString("D3");
+        return $"{eventSlug}-{divAbbr}-{sequence}";
+    }
+
+    public async Task<EventEntry> CreateAsync(EventEntry entry, CancellationToken ct = default)
+    {
+        entry.TenantId = tenant.TenantId;
+        entry.SubmittedAt = DateTime.UtcNow;
+
+        // Generate entry number
+        entry.EntryNumber = await GenerateEntryNumberAsync(entry.EventId, entry.DivisionId, ct);
+
+        // Determine fee
+        var division = await db.Divisions
+            .Include(d => d.Event)
+            .FirstOrDefaultAsync(d => d.Id == entry.DivisionId, ct);
+        if (division is not null)
+        {
+            entry.EntryFee = division.EntryFeeOverride ?? division.Event.BaseEntryFee;
+        }
+
+        entry.Status = EntryStatus.PaymentPending;
+        entry.EligibilityPassed = true; // simplified for public entry flow
+
+        db.EventEntries.Add(entry);
+        await db.SaveChangesAsync(ct);
+        return entry;
+    }
 }

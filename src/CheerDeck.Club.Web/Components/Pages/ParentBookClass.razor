@@ -1,0 +1,345 @@
+@page "/parent/book"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject ClassService ClassService
+@inject GuardianService GuardianService
+@inject InvoiceService InvoiceService
+
+<PageTitle>Book a Class - CheerDeck Club</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Book a Class</h1>
+    <a href="parent" class="btn btn-outline-secondary">Back to Dashboard</a>
+</div>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_guardian is null)
+{
+    <div class="alert alert-warning">No guardian profile found for your account. Please contact the club to set up your account.</div>
+}
+else if (_successMessage is not null)
+{
+    <div class="alert alert-success">
+        <h5 class="alert-heading">Booking Confirmed</h5>
+        <p>@_successMessage</p>
+        <hr />
+        <div class="d-flex gap-2">
+            <a href="parent/invoices" class="btn btn-sm btn-outline-success">View Invoice</a>
+            <button class="btn btn-sm btn-primary" @onclick="DismissSuccess">Book Another Class</button>
+        </div>
+    </div>
+}
+else
+{
+    @if (_errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            @_errorMessage
+            <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+        </div>
+    }
+
+    @* Filters *@
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Filter by Day</label>
+                    <select class="form-select" @bind="_filterDay">
+                        <option value="">All Days</option>
+                        @foreach (var day in Enum.GetValues<DayOfWeekEnum>())
+                        {
+                            <option value="@day">@day</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Filter by Level</label>
+                    <select class="form-select" @bind="_filterLevel">
+                        <option value="">All Levels</option>
+                        @foreach (var level in Enum.GetValues<CheerLevel>())
+                        {
+                            <option value="@level">@level</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button class="btn btn-outline-secondary" @onclick="ClearFilters">Clear Filters</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Class Listing *@
+    @if (GetFilteredClasses() is var filtered && filtered.Count == 0)
+    {
+        <div class="alert alert-info">
+            @if (_availableClasses.Count == 0)
+            {
+                <span>There are no classes available for booking at the moment. Please check back later.</span>
+            }
+            else
+            {
+                <span>No classes match your selected filters. Try adjusting the filters above.</span>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var cls in filtered)
+            {
+                var activeEnrolments = cls.Enrolments.Count(e => e.Status == EnrolmentStatus.Active);
+                var spotsRemaining = cls.Capacity - activeEnrolments;
+
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm @(_selectedClassId == cls.Id ? "border-primary border-2" : "")">
+                        <div class="card-body d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title mb-0">@cls.Name</h5>
+                                @if (cls.Level.HasValue)
+                                {
+                                    <span class="badge bg-info">@cls.Level</span>
+                                }
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="text-muted mb-1">
+                                    <i class="bi bi-calendar3"></i>
+                                    @cls.DayOfWeek — @cls.StartTime.ToString("HH:mm") to @cls.EndTime.ToString("HH:mm")
+                                </div>
+                                @if (cls.Venue is not null)
+                                {
+                                    <div class="text-muted mb-1">
+                                        <i class="bi bi-geo-alt"></i>
+                                        @cls.Venue.Name
+                                    </div>
+                                }
+                                @if (cls.Term is not null)
+                                {
+                                    <div class="text-muted mb-1">
+                                        <i class="bi bi-bookmark"></i>
+                                        @cls.Term.Name
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="fs-5 fw-bold text-primary">
+                                    @((cls.TermPrice ?? cls.PricePerSession).ToString("C"))
+                                    <small class="fw-normal text-muted">@(cls.TermPrice.HasValue ? "/ term" : "/ session")</small>
+                                </span>
+                                <span class="badge @(spotsRemaining <= 3 ? "bg-warning text-dark" : "bg-success")">
+                                    @spotsRemaining @(spotsRemaining == 1 ? "spot" : "spots") left
+                                </span>
+                            </div>
+
+                            <div class="mt-auto">
+                                @if (_selectedClassId == cls.Id)
+                                {
+                                    @* Athlete selection for this class *@
+                                    <div class="border rounded p-3 bg-light">
+                                        @if (GetEligibleAthletes(cls.Id) is var eligible && eligible.Count == 0)
+                                        {
+                                            <p class="text-muted mb-2">All your athletes are already enrolled in this class.</p>
+                                            <button class="btn btn-sm btn-outline-secondary" @onclick="CancelSelection">Cancel</button>
+                                        }
+                                        else
+                                        {
+                                            <label class="form-label fw-semibold">Select Athlete</label>
+                                            <select class="form-select mb-2" @bind="_selectedAthleteId">
+                                                <option value="">-- Choose an athlete --</option>
+                                                @foreach (var athlete in eligible)
+                                                {
+                                                    <option value="@athlete.Id">@athlete.FullName</option>
+                                                }
+                                            </select>
+                                            <div class="d-flex gap-2">
+                                                <button class="btn btn-success flex-fill"
+                                                        @onclick="() => ConfirmBooking(cls)"
+                                                        disabled="@(_selectedAthleteId == Guid.Empty || _booking)">
+                                                    @if (_booking)
+                                                    {
+                                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                                    }
+                                                    Confirm Booking
+                                                </button>
+                                                <button class="btn btn-outline-secondary" @onclick="CancelSelection" disabled="@_booking">Cancel</button>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    @if (_athletes.Count == 0)
+                                    {
+                                        <div class="text-muted small">No athletes linked to your account.</div>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-primary w-100" @onclick="() => SelectClass(cls.Id)">
+                                            Book This Class
+                                        </button>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private bool _booking;
+    private Guardian? _guardian;
+    private List<Athlete> _athletes = new();
+    private List<Class> _availableClasses = new();
+    private string? _filterDay;
+    private string? _filterLevel;
+    private Guid? _selectedClassId;
+    private Guid _selectedAthleteId;
+    private string? _successMessage;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var guardians = await GuardianService.GetAllAsync();
+        _guardian = guardians.FirstOrDefault();
+
+        if (_guardian is not null)
+        {
+            _athletes = _guardian.Athletes
+                .Select(ag => ag.Athlete)
+                .Where(a => a.IsActive)
+                .OrderBy(a => a.FirstName)
+                .ToList();
+
+            _availableClasses = await ClassService.GetAvailableClassesAsync();
+        }
+
+        _loading = false;
+    }
+
+    private List<Class> GetFilteredClasses()
+    {
+        var query = _availableClasses.AsEnumerable();
+
+        if (!string.IsNullOrEmpty(_filterDay) && Enum.TryParse<DayOfWeekEnum>(_filterDay, out var day))
+        {
+            query = query.Where(c => c.DayOfWeek == day);
+        }
+
+        if (!string.IsNullOrEmpty(_filterLevel) && Enum.TryParse<CheerLevel>(_filterLevel, out var level))
+        {
+            query = query.Where(c => c.Level == level);
+        }
+
+        return query.ToList();
+    }
+
+    private List<Athlete> GetEligibleAthletes(Guid classId)
+    {
+        var cls = _availableClasses.FirstOrDefault(c => c.Id == classId);
+        if (cls is null) return new();
+
+        var enrolledAthleteIds = cls.Enrolments
+            .Where(e => e.Status == EnrolmentStatus.Active)
+            .Select(e => e.AthleteId)
+            .ToHashSet();
+
+        return _athletes.Where(a => !enrolledAthleteIds.Contains(a.Id)).ToList();
+    }
+
+    private void SelectClass(Guid classId)
+    {
+        _selectedClassId = classId;
+        _selectedAthleteId = Guid.Empty;
+        _errorMessage = null;
+    }
+
+    private void CancelSelection()
+    {
+        _selectedClassId = null;
+        _selectedAthleteId = Guid.Empty;
+    }
+
+    private void ClearFilters()
+    {
+        _filterDay = "";
+        _filterLevel = "";
+    }
+
+    private async Task ConfirmBooking(Class cls)
+    {
+        if (_selectedAthleteId == Guid.Empty || _guardian is null) return;
+
+        _booking = true;
+        _errorMessage = null;
+
+        try
+        {
+            // Re-check capacity to avoid race conditions
+            var freshClasses = await ClassService.GetAvailableClassesAsync();
+            var freshClass = freshClasses.FirstOrDefault(c => c.Id == cls.Id);
+
+            if (freshClass is null)
+            {
+                _errorMessage = "Sorry, this class is now full. Please choose another class.";
+                _availableClasses = freshClasses;
+                _selectedClassId = null;
+                return;
+            }
+
+            // Create enrolment
+            var enrolment = await ClassService.EnrolAthleteAsync(cls.Id, _selectedAthleteId);
+
+            if (enrolment.Status == EnrolmentStatus.WaitingList)
+            {
+                _errorMessage = "This class has just filled up. Your athlete has been added to the waiting list.";
+                _availableClasses = await ClassService.GetAvailableClassesAsync();
+                _selectedClassId = null;
+                return;
+            }
+
+            // Create booking invoice
+            var price = cls.TermPrice ?? cls.PricePerSession;
+            var athlete = _athletes.First(a => a.Id == _selectedAthleteId);
+            var description = $"{cls.Name} - {cls.Term?.Name ?? "Current Term"} ({athlete.FullName})";
+
+            await InvoiceService.CreateBookingInvoiceAsync(
+                _guardian.Id, _selectedAthleteId, cls.Id, price, description);
+
+            _successMessage = $"{athlete.FullName} has been enrolled in {cls.Name}. An invoice for {price:C} has been generated.";
+            _selectedClassId = null;
+            _selectedAthleteId = Guid.Empty;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Something went wrong: {ex.Message}. Please try again.";
+        }
+        finally
+        {
+            _booking = false;
+        }
+    }
+
+    private async Task DismissSuccess()
+    {
+        _successMessage = null;
+        _loading = true;
+
+        // Reload available classes since one may now be full
+        _availableClasses = await ClassService.GetAvailableClassesAsync();
+        _loading = false;
+    }
+}

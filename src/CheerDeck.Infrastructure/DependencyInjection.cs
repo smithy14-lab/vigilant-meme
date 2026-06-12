@@ -74,7 +74,10 @@ public static class DependencyInjection
         else
             services.AddScoped<IPaymentGateway, StubPaymentGateway>();
 
-        services.AddScoped<IEmailService, StubEmailService>();
+        if (!string.IsNullOrEmpty(configuration["SendGrid:ApiKey"]))
+            services.AddScoped<IEmailService, SendGridEmailService>();
+        else
+            services.AddScoped<IEmailService, StubEmailService>();
 
         // Application services
         services.AddScoped<AthleteService>();
@@ -94,6 +97,7 @@ public static class DependencyInjection
         services.AddScoped<ScoringService>();
         services.AddScoped<AttendanceService>();
         services.AddScoped<WaiverService>();
+        services.AddScoped<NotificationService>();
         services.AddScoped<ChatService>();
         services.AddScoped<ReminderService>();
 

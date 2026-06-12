@@ -258,7 +258,7 @@
                                 @foreach (var entry in entries)
                                 {
                                     <tr>
-                                        <td>@entry.Team.Name</td>
+                                        <td>@(entry.TeamName ?? entry.Team?.Name ?? "-")</td>
                                         <td>@entry.Division.Name</td>
                                         <td><span class="badge @EntryStatusBadge(entry.Status)">@entry.Status</span></td>
                                         <td>

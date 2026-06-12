@@ -57,6 +57,34 @@ public class InvoiceService(IAppDbContext db, ITenantContext tenant, IPaymentGat
         await db.SaveChangesAsync(ct);
     }
 
+    public async Task<Invoice> CreateBookingInvoiceAsync(
+        Guid guardianId, Guid athleteId, Guid classId,
+        decimal amount, string description, CancellationToken ct = default)
+    {
+        var invoice = new Invoice
+        {
+            GuardianId = guardianId,
+            Type = InvoiceType.ClassFees,
+            Status = InvoiceStatus.Sent,
+            IssueDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(14)),
+            Notes = $"Booking for athlete {athleteId} in class {classId}",
+            LineItems = new List<InvoiceLineItem>
+            {
+                new InvoiceLineItem
+                {
+                    TenantId = tenant.TenantId,
+                    Description = description,
+                    Quantity = 1,
+                    UnitPrice = amount,
+                    Total = amount
+                }
+            }
+        };
+
+        return await CreateAsync(invoice, ct);
+    }
+
     private async Task<string> GenerateInvoiceNumberAsync(CancellationToken ct)
     {
         var count = await db.Invoices.CountAsync(ct);

@@ -45,8 +45,22 @@
                         }
                     </select>
                 </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button class="btn btn-success" @onclick="AutoSchedule" disabled="@_scheduling">
+                        @if (_scheduling) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Auto-Schedule All Entries
+                    </button>
+                </div>
             }
         </div>
+
+        @if (_scheduleResult is not null)
+        {
+            <div class="alert alert-success alert-dismissible fade show">
+                @_scheduleResult
+                <button type="button" class="btn-close" @onclick="() => _scheduleResult = null"></button>
+            </div>
+        }
 
         @if (loading)
         {
@@ -143,6 +157,8 @@
     private Guid selectedBlockId;
     private List<RunningOrderEntry>? runningOrder;
     private bool loading;
+    private bool _scheduling;
+    private string? _scheduleResult;
 
     protected override async Task OnInitializedAsync()
     {
@@ -198,6 +214,20 @@
         PerformanceStatus.Scratched => "bg-dark",
         _ => "bg-secondary"
     };
+
+    private async Task AutoSchedule()
+    {
+        if (selectedEventId == Guid.Empty) return;
+        _scheduling = true;
+        _scheduleResult = null;
+        var result = await RunningOrderService.AutoScheduleAsync(selectedEventId);
+        _scheduleResult = $"Scheduled {result.EntriesScheduled} entries with {result.WarmUpsAssigned} warm-up slots. " +
+                          string.Join("; ", result.BlockSummaries);
+        _scheduling = false;
+
+        if (selectedBlockId != Guid.Empty)
+            runningOrder = await RunningOrderService.GetForBlockAsync(selectedBlockId);
+    }
 
     private static string RowClass(PerformanceStatus status) => status switch
     {

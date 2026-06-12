@@ -1,0 +1,301 @@
+@page "/reports"
+@attribute [Authorize(Roles = $"{AppRoles.EventProducer},{AppRoles.Tabulator}")]
+@rendermode InteractiveServer
+@inject EventService EventService
+@inject EntryService EntryService
+
+<PageTitle>Reports - CheerDeck Competitions</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Reports</h1>
+        <small class="text-muted">Data as of @DateTime.Now.ToString("dd MMM yyyy, HH:mm")</small>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        @* ── ENTRY SUMMARY ── *@
+        <h4 class="mb-3">Entry Summary</h4>
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card text-bg-primary h-100">
+                    <div class="card-body">
+                        <small class="text-uppercase opacity-75">Total Entries</small>
+                        <h2 class="mb-0">@_allEntries.Count</h2>
+                        <small>across @_events.Count events</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-bg-success h-100">
+                    <div class="card-body">
+                        <small class="text-uppercase opacity-75">Total Entry Fees</small>
+                        <h2 class="mb-0">@_totalFees.ToString("C")</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-bg-info h-100">
+                    <div class="card-body">
+                        <small class="text-uppercase opacity-75">Paid</small>
+                        <h2 class="mb-0">@_totalPaid.ToString("C")</h2>
+                        <small>@_paidCount confirmed</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-bg-warning h-100">
+                    <div class="card-body">
+                        <small class="text-uppercase opacity-75">Pending</small>
+                        <h2 class="mb-0">@_totalPending.ToString("C")</h2>
+                        <small>@_pendingCount awaiting payment</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card border-success h-100">
+                    <div class="card-body">
+                        <small class="text-uppercase text-muted">Confirmed</small>
+                        <h2 class="mb-0 text-success">@_allEntries.Count(e => e.Status == EntryStatus.Confirmed)</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-warning h-100">
+                    <div class="card-body">
+                        <small class="text-uppercase text-muted">Payment Pending</small>
+                        <h2 class="mb-0 text-warning">@_allEntries.Count(e => e.Status == EntryStatus.PaymentPending)</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-danger h-100">
+                    <div class="card-body">
+                        <small class="text-uppercase text-muted">Withdrawn / Rejected</small>
+                        <h2 class="mb-0 text-danger">@(_allEntries.Count(e => e.Status == EntryStatus.Withdrawn || e.Status == EntryStatus.Rejected))</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ── EVENT STATS ── *@
+        <h4 class="mb-3">Events by Status</h4>
+        <div class="row g-3 mb-4">
+            @foreach (var group in _eventsByStatus)
+            {
+                <div class="col-md-3 col-lg-2">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <span class="badge @StatusBadgeClass(group.Status) mb-2">@group.Status</span>
+                            <h3 class="mb-0">@group.Count</h3>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (_eventSummary.Any())
+        {
+            <div class="card mb-4">
+                <div class="card-header">Event Summary</div>
+                <div class="card-body p-0">
+                    <table class="table table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Event</th>
+                                <th>Status</th>
+                                <th>Deadline</th>
+                                <th class="text-end">Divisions</th>
+                                <th class="text-end">Entries</th>
+                                <th class="text-end">Confirmed</th>
+                                <th class="text-end">Total Fees</th>
+                                <th class="text-end">Collected</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _eventSummary)
+                            {
+                                <tr>
+                                    <td><strong>@row.Name</strong></td>
+                                    <td><span class="badge @StatusBadgeClass(row.Status)">@row.Status</span></td>
+                                    <td>@row.Deadline.ToString("dd MMM yyyy")</td>
+                                    <td class="text-end">@row.Divisions</td>
+                                    <td class="text-end">@row.TotalEntries</td>
+                                    <td class="text-end">@row.Confirmed</td>
+                                    <td class="text-end">@row.TotalFees.ToString("C")</td>
+                                    <td class="text-end">@row.Collected.ToString("C")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @* ── DIVISION BREAKDOWN ── *@
+        @if (_divisionSummary.Any())
+        {
+            <h4 class="mb-3">Division Breakdown</h4>
+            <div class="card mb-4">
+                <div class="card-body p-0">
+                    <table class="table table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Event</th>
+                                <th>Division</th>
+                                <th>Level</th>
+                                <th class="text-end">Entries</th>
+                                <th class="text-end">Team Size (Min/Max)</th>
+                                <th class="text-end">Entry Fee</th>
+                                <th class="text-end">Total Fees</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _divisionSummary)
+                            {
+                                <tr>
+                                    <td>@row.EventName</td>
+                                    <td><strong>@row.DivisionName</strong></td>
+                                    <td>@row.Level</td>
+                                    <td class="text-end">@row.EntryCount</td>
+                                    <td class="text-end">@row.TeamSizes</td>
+                                    <td class="text-end">@row.Fee.ToString("C")</td>
+                                    <td class="text-end">@row.TotalFees.ToString("C")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private List<Event> _events = new();
+    private List<EventEntry> _allEntries = new();
+
+    // Entry summary
+    private decimal _totalFees;
+    private decimal _totalPaid;
+    private decimal _totalPending;
+    private int _paidCount;
+    private int _pendingCount;
+
+    // Event stats
+    private List<StatusGroup> _eventsByStatus = new();
+    private List<EventRow> _eventSummary = new();
+
+    // Division breakdown
+    private List<DivisionRow> _divisionSummary = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+
+        _events = await EventService.GetAllAsync();
+
+        foreach (var evt in _events)
+        {
+            var entries = await EntryService.GetEntriesForEventAsync(evt.Id);
+            _allEntries.AddRange(entries);
+        }
+
+        CalculateEntryStats();
+        CalculateEventStats();
+        CalculateDivisionBreakdown();
+
+        _loading = false;
+    }
+
+    private void CalculateEntryStats()
+    {
+        _totalFees = _allEntries.Sum(e => e.EntryFee);
+        _totalPaid = _allEntries.Where(e => e.Status == EntryStatus.Confirmed && e.PaidAt.HasValue).Sum(e => e.EntryFee);
+        _totalPending = _allEntries
+            .Where(e => e.Status == EntryStatus.PaymentPending || e.Status == EntryStatus.EligibilityChecked || e.Status == EntryStatus.Pending)
+            .Sum(e => e.EntryFee);
+        _paidCount = _allEntries.Count(e => e.Status == EntryStatus.Confirmed && e.PaidAt.HasValue);
+        _pendingCount = _allEntries.Count(e => e.Status == EntryStatus.PaymentPending || e.Status == EntryStatus.EligibilityChecked || e.Status == EntryStatus.Pending);
+    }
+
+    private void CalculateEventStats()
+    {
+        _eventsByStatus = Enum.GetValues<EventStatus>()
+            .Select(s => new StatusGroup(s, _events.Count(e => e.Status == s)))
+            .Where(g => g.Count > 0)
+            .OrderByDescending(g => g.Count)
+            .ToList();
+
+        _eventSummary = _events
+            .Select(evt =>
+            {
+                var entries = _allEntries.Where(e => e.EventId == evt.Id).ToList();
+                return new EventRow(
+                    evt.Name,
+                    evt.Status,
+                    evt.EntryDeadline,
+                    evt.Divisions.Count,
+                    entries.Count,
+                    entries.Count(e => e.Status == EntryStatus.Confirmed),
+                    entries.Sum(e => e.EntryFee),
+                    entries.Where(e => e.Status == EntryStatus.Confirmed && e.PaidAt.HasValue).Sum(e => e.EntryFee));
+            })
+            .OrderByDescending(r => r.TotalEntries)
+            .ToList();
+    }
+
+    private void CalculateDivisionBreakdown()
+    {
+        _divisionSummary = new();
+
+        foreach (var evt in _events)
+        {
+            foreach (var div in evt.Divisions.OrderBy(d => d.SortOrder))
+            {
+                var divEntries = _allEntries.Where(e => e.DivisionId == div.Id).ToList();
+                var fee = div.EntryFeeOverride ?? evt.BaseEntryFee;
+                var teamSizes = div.MinTeamSize.HasValue || div.MaxTeamSize.HasValue
+                    ? $"{div.MinTeamSize?.ToString() ?? "-"} / {div.MaxTeamSize?.ToString() ?? "-"}"
+                    : "-";
+
+                _divisionSummary.Add(new DivisionRow(
+                    evt.Name,
+                    div.Name,
+                    div.Level,
+                    divEntries.Count,
+                    teamSizes,
+                    fee,
+                    divEntries.Sum(e => e.EntryFee)));
+            }
+        }
+    }
+
+    private static string StatusBadgeClass(EventStatus status) => status switch
+    {
+        EventStatus.Draft => "bg-secondary",
+        EventStatus.Published => "bg-info text-dark",
+        EventStatus.EntriesOpen => "bg-success",
+        EventStatus.EntriesClosed => "bg-warning text-dark",
+        EventStatus.InProgress => "bg-primary",
+        EventStatus.Completed => "bg-dark",
+        EventStatus.Cancelled => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private record StatusGroup(EventStatus Status, int Count);
+    private record EventRow(string Name, EventStatus Status, DateOnly Deadline, int Divisions, int TotalEntries, int Confirmed, decimal TotalFees, decimal Collected);
+    private record DivisionRow(string EventName, string DivisionName, CheerLevel Level, int EntryCount, string TeamSizes, decimal Fee, decimal TotalFees);
+}

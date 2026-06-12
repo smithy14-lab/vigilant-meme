@@ -1,0 +1,107 @@
+name: Build and Deploy CheerDeck
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '9.0.x'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore CheerDeck.slnx
+
+      - name: Build
+        run: dotnet build CheerDeck.slnx --no-restore -c Release
+
+      - name: Publish API
+        run: dotnet publish src/CheerDeck.Api/CheerDeck.Api.csproj -c Release -o publish/api
+
+      - name: Publish Club
+        run: dotnet publish src/CheerDeck.Club.Web/CheerDeck.Club.Web.csproj -c Release -o publish/club
+
+      - name: Publish Competition
+        run: dotnet publish src/CheerDeck.Competition.Web/CheerDeck.Competition.Web.csproj -c Release -o publish/competition
+
+      - name: Upload API artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api
+          path: publish/api
+
+      - name: Upload Club artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: club
+          path: publish/club
+
+      - name: Upload Competition artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: competition
+          path: publish/competition
+
+  deploy-api:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: api
+          path: api
+
+      - name: Deploy to Azure
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: cheerdeck-api
+          publish-profile: ${{ secrets.AZURE_API_PUBLISH_PROFILE }}
+          package: api
+
+  deploy-club:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: club
+          path: club
+
+      - name: Deploy to Azure
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: cheerdeck-club
+          publish-profile: ${{ secrets.AZURE_CLUB_PUBLISH_PROFILE }}
+          package: club
+
+  deploy-competition:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: competition
+          path: competition
+
+      - name: Deploy to Azure
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: cheerdeck-competition
+          publish-profile: ${{ secrets.AZURE_COMPETITION_PUBLISH_PROFILE }}
+          package: competition

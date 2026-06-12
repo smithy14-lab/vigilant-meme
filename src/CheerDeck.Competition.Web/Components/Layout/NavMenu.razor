@@ -16,6 +16,15 @@
 
         <AuthorizeView Roles="@($"{AppRoles.EventProducer},{AppRoles.Tabulator}")">
             <div class="nav-item px-3 pt-2">
+                <small class="text-muted ps-3">MANAGEMENT</small>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="reports">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Reports
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3 pt-2">
                 <small class="text-muted ps-3">COMPETITION</small>
             </div>
             <div class="nav-item px-3">
@@ -40,6 +49,14 @@
                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Public Events
             </NavLink>
         </div>
+
+        <AuthorizeView>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="entries/submit">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Submit Entry
+                </NavLink>
+            </div>
+        </AuthorizeView>
 
         <AuthorizeView Roles="@($"{AppRoles.EventProducer},{AppRoles.Judge},{AppRoles.Tabulator}")">
             <div class="nav-item px-3 pt-2">
