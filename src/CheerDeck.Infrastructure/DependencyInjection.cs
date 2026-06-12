@@ -77,7 +77,9 @@ public static class DependencyInjection
         else
             services.AddScoped<IPaymentGateway, StubPaymentGateway>();
 
-        if (!string.IsNullOrEmpty(configuration["SendGrid:ApiKey"]))
+        if (!string.IsNullOrEmpty(configuration["Brevo:ApiKey"]))
+            services.AddScoped<IEmailService, BrevoEmailService>();
+        else if (!string.IsNullOrEmpty(configuration["SendGrid:ApiKey"]))
             services.AddScoped<IEmailService, SendGridEmailService>();
         else
             services.AddScoped<IEmailService, StubEmailService>();

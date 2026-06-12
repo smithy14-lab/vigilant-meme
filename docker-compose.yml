@@ -34,9 +34,9 @@ services:
       Stripe__SecretKey: ""
       Stripe__PublishableKey: ""
       Stripe__WebhookSecret: ""
-      SendGrid__ApiKey: ""
-      SendGrid__FromEmail: "noreply@cheerdeck.com"
-      SendGrid__FromName: "CheerDeck"
+      Brevo__ApiKey: ""
+      Brevo__FromEmail: "noreply@cheerdeck.com"
+      Brevo__FromName: "CheerDeck"
       Cors__AllowedOrigins__0: "http://localhost:5200"
       Cors__AllowedOrigins__1: "http://localhost:5300"
     depends_on:
@@ -60,9 +60,9 @@ services:
       Stripe__SecretKey: ""
       Stripe__PublishableKey: ""
       Stripe__WebhookSecret: ""
-      SendGrid__ApiKey: ""
-      SendGrid__FromEmail: "noreply@cheerdeck.com"
-      SendGrid__FromName: "CheerDeck"
+      Brevo__ApiKey: ""
+      Brevo__FromEmail: "noreply@cheerdeck.com"
+      Brevo__FromName: "CheerDeck"
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -86,9 +86,9 @@ services:
       Stripe__SecretKey: ""
       Stripe__PublishableKey: ""
       Stripe__WebhookSecret: ""
-      SendGrid__ApiKey: ""
-      SendGrid__FromEmail: "noreply@cheerdeck.com"
-      SendGrid__FromName: "CheerDeck"
+      Brevo__ApiKey: ""
+      Brevo__FromEmail: "noreply@cheerdeck.com"
+      Brevo__FromName: "CheerDeck"
     depends_on:
       sqlserver:
         condition: service_healthy
