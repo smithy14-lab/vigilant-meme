@@ -78,11 +78,7 @@ else
                         <td>
                             @if (inv.Status is InvoiceStatus.Draft or InvoiceStatus.Sent or InvoiceStatus.Overdue)
                             {
-                                <button class="btn btn-sm btn-primary" @onclick="() => PayInvoice(inv.Id)" disabled="@_paying">
-                                    @if (_payingInvoiceId == inv.Id)
-                                    {
-                                        <span class="spinner-border spinner-border-sm me-1"></span>
-                                    }
+                                <button class="btn btn-sm btn-primary" @onclick="() => PayInvoice(inv.Id)">
                                     Pay Now
                                 </button>
                             }
@@ -96,8 +92,6 @@ else
 
 @code {
     private bool _loading = true;
-    private bool _paying;
-    private Guid? _payingInvoiceId;
     private Guardian? _guardian;
     private List<Invoice> _invoices = new();
     private decimal _totalOutstanding;

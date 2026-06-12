@@ -55,4 +55,18 @@ public class PaymentTests
         cancel.Success.Should().BeTrue();
         cancel.Status.Should().Be("cancelled");
     }
+
+    [Fact]
+    public async Task Stub_Checkout_Session_Returns_Success_Url()
+    {
+        var gateway = new StubPaymentGateway();
+        var successUrl = "https://example.com/success";
+        var cancelUrl = "https://example.com/cancel";
+
+        var session = await gateway.CreateCheckoutSessionAsync(
+            50m, "GBP", "Test checkout", successUrl, cancelUrl);
+
+        session.Id.Should().StartWith("cs_stub_");
+        session.Url.Should().Be(successUrl);
+    }
 }
