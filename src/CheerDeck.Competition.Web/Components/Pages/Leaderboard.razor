@@ -74,7 +74,7 @@
                                     <span class="display-4 fw-bold @RankTextClass(r.Rank)">@r.Rank</span>
                                 </div>
                                 <div class="col-6 col-md-7">
-                                    <h3 class="mb-0 display-6">@r.Entry.Team.Name</h3>
+                                    <h3 class="mb-0 display-6">@r.Entry.Team?.Name</h3>
                                 </div>
                                 <div class="col-4 col-md-4 text-end">
                                     <span class="display-5 fw-bold">@r.FinalScore.ToString("F2")</span>

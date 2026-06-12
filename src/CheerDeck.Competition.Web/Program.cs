@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.RateLimiting;
 using CheerDeck.Infrastructure;
 using CheerDeck.Infrastructure.Data;
 using CheerDeck.Infrastructure.Identity;
@@ -13,6 +14,17 @@ builder.Services.AddRazorComponents()
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddCheerDeckInfrastructure(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHealthChecks();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = 429;
+    options.AddFixedWindowLimiter("auth", cfg =>
+    {
+        cfg.PermitLimit = 10;
+        cfg.Window = TimeSpan.FromMinutes(1);
+        cfg.QueueLimit = 0;
+    });
+});
 
 var app = builder.Build();
 
@@ -22,9 +34,11 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
     app.UseHsts();
+    app.UseHttpsRedirection();
 }
 
 app.UseStaticFiles();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
@@ -39,12 +53,15 @@ app.MapPost("/account/perform-login", async (
     var rememberMe = form.ContainsKey("rememberMe");
     var returnUrl = form["returnUrl"].ToString();
 
-    var result = await signInManager.PasswordSignInAsync(email, password, rememberMe, lockoutOnFailure: false);
+    var result = await signInManager.PasswordSignInAsync(email, password, rememberMe, lockoutOnFailure: true);
     if (result.Succeeded)
         return Results.Redirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
 
+    if (result.IsLockedOut)
+        return Results.Redirect("/account/login?error=LockedOut");
+
     return Results.Redirect($"/account/login?error=InvalidCredentials&returnUrl={Uri.EscapeDataString(returnUrl ?? "")}");
-}).DisableAntiforgery();
+}).DisableAntiforgery().RequireRateLimiting("auth");
 
 app.MapPost("/account/perform-register", async (
     HttpContext context,
@@ -74,13 +91,15 @@ app.MapPost("/account/perform-register", async (
 
     var errors = string.Join(",", result.Errors.Select(e => e.Code));
     return Results.Redirect($"/account/register?error={errors}");
-}).DisableAntiforgery();
+}).DisableAntiforgery().RequireRateLimiting("auth");
 
 app.MapPost("/account/perform-logout", async (SignInManager<AppUser> signInManager) =>
 {
     await signInManager.SignOutAsync();
     return Results.Redirect("/account/login");
 }).DisableAntiforgery();
+
+app.MapHealthChecks("/health");
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

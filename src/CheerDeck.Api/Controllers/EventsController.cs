@@ -1,9 +1,11 @@
 using CheerDeck.Application.Services;
 using CheerDeck.Domain.Competition;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CheerDeck.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class EventsController(EventService eventService) : ControllerBase

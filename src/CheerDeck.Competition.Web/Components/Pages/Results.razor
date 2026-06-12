@@ -108,7 +108,7 @@
                                             <span class="text-muted">-</span>
                                         }
                                     </td>
-                                    <td>@r.Entry.Team.Name</td>
+                                    <td>@r.Entry.Team?.Name</td>
                                     <td class="text-end">@r.RawScore.ToString("F2")</td>
                                     <td class="text-end text-danger">@(r.DeductionTotal > 0 ? $"-{r.DeductionTotal:F2}" : "-")</td>
                                     <td class="text-end"><strong>@r.FinalScore.ToString("F2")</strong></td>

@@ -103,7 +103,7 @@
                                 </td>
                                 <td>
                                     <span class="fw-bold" style="font-size: @(r.Rank is >= 1 and <= 3 ? "1.6rem" : "1.4rem");">
-                                        @r.Entry.Team.Name
+                                        @r.Entry.Team?.Name
                                     </span>
                                 </td>
                                 <td class="text-end">
@@ -178,7 +178,7 @@
                 var performing = entries.FirstOrDefault(e => e.Status == PerformanceStatus.Performing);
                 if (performing is not null)
                 {
-                    currentlyPerforming = performing.Entry.Team.Name;
+                    currentlyPerforming = performing.Entry.Team?.Name;
                     return;
                 }
             }

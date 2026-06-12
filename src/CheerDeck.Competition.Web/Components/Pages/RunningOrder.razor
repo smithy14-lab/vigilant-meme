@@ -94,7 +94,7 @@
                             {
                                 <tr class="@RowClass(roe.Status)">
                                     <td><strong>@roe.Position</strong></td>
-                                    <td>@roe.Entry.Team.Name</td>
+                                    <td>@roe.Entry.Team?.Name</td>
                                     <td>@roe.Entry.Division.Name</td>
                                     <td>@(roe.ScheduledTime?.ToString("HH:mm") ?? "-")</td>
                                     <td>

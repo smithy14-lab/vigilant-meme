@@ -1,8 +1,10 @@
 using CheerDeck.Application.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CheerDeck.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class EntriesController(EntryService entryService) : ControllerBase

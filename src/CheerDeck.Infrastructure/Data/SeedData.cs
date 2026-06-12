@@ -6,6 +6,7 @@ using CheerDeck.Domain.Competition;
 using CheerDeck.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 public static class SeedData
@@ -13,20 +14,32 @@ public static class SeedData
     public static readonly Guid ClubTenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     public static readonly Guid ProducerTenantId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
-    public static async Task InitializeAsync(IServiceProvider services)
+    public static async Task InitializeAsync(IServiceProvider services, bool seedDemoData = true)
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-        await db.Database.EnsureCreatedAsync();
+        var useInMemory = config.GetValue<bool>("UseInMemoryDatabase") ||
+                          string.IsNullOrEmpty(config.GetConnectionString("DefaultConnection"));
+
+        if (useInMemory)
+            await db.Database.EnsureCreatedAsync();
+        else
+            await db.Database.MigrateAsync();
+
+        await SeedRolesAsync(scope.ServiceProvider);
 
         if (await db.Tenants.AnyAsync()) return;
 
-        await SeedRolesAsync(scope.ServiceProvider);
         await SeedTenantsAsync(db);
         await SeedUsersAsync(scope.ServiceProvider, db);
-        await SeedClubDataAsync(db);
-        await SeedCompetitionDataAsync(db);
+
+        if (seedDemoData && useInMemory)
+        {
+            await SeedClubDataAsync(db);
+            await SeedCompetitionDataAsync(db);
+        }
     }
 
     private static async Task SeedRolesAsync(IServiceProvider sp)
