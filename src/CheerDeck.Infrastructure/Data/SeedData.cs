@@ -26,7 +26,7 @@ public static class SeedData
         if (useInMemory)
             await db.Database.EnsureCreatedAsync();
         else
-            await db.Database.MigrateAsync();
+            await db.Database.EnsureCreatedAsync();
 
         await SeedRolesAsync(scope.ServiceProvider);
 
