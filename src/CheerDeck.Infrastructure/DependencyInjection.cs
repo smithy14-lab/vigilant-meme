@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 public static class DependencyInjection
 {
@@ -32,7 +33,7 @@ public static class DependencyInjection
         {
             services.AddDbContext<AppDbContext>((sp, options) =>
             {
-                options.UseSqlServer(connectionString, sql =>
+                options.UseSqlServer(connectionString!, sql =>
                     sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
             });
         }

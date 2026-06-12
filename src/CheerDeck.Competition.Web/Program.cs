@@ -30,7 +30,14 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
-await SeedData.InitializeAsync(app.Services);
+try
+{
+    await SeedData.InitializeAsync(app.Services);
+}
+catch (Exception ex)
+{
+    app.Logger.LogCritical(ex, "Database initialization failed — app will start without seeded data");
+}
 
 if (!app.Environment.IsDevelopment())
 {
@@ -200,6 +207,34 @@ app.MapPost("/account/perform-reset-password", async (HttpRequest request, UserM
 }).DisableAntiforgery().RequireRateLimiting("auth");
 
 app.MapHealthChecks("/health");
+app.MapGet("/health/startup", async (IServiceProvider sp) =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var connStr = config.GetConnectionString("DefaultConnection");
+    var useInMemory = string.IsNullOrEmpty(connStr) || config.GetValue<bool>("UseInMemoryDatabase");
+    var dbStatus = "unknown";
+
+    try
+    {
+        using var scope = sp.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CheerDeck.Infrastructure.Data.AppDbContext>();
+        var canConnect = await db.Database.CanConnectAsync();
+        dbStatus = canConnect ? "connected" : "cannot-connect";
+    }
+    catch (Exception ex)
+    {
+        dbStatus = $"error: {ex.GetType().Name}: {ex.Message}";
+    }
+
+    return Results.Ok(new
+    {
+        status = "running",
+        connectionStringPresent = !string.IsNullOrEmpty(connStr),
+        useInMemory,
+        dbStatus,
+        environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "unknown"
+    });
+});
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
