@@ -10,7 +10,7 @@ set -e
 RESOURCE_GROUP="cheerdeck-rg"
 LOCATION="uksouth"
 APP_PLAN="cheerdeck-plan"
-SKU="B1"
+SKU="F1"
 
 API_APP="cheerdeck-api"
 CLUB_APP="cheerdeck-club"
