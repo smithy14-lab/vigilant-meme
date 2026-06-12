@@ -4,7 +4,7 @@ services:
     container_name: cheerdeck-sqlserver
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "CheerDeck_Dev#2024"
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD:-CheerDeck_Dev#2024}"
       MSSQL_PID: "Developer"
     ports:
       - "1433:1433"
@@ -13,7 +13,7 @@ services:
     networks:
       - cheerdeck-network
     healthcheck:
-      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "CheerDeck_Dev#2024" -C -Q "SELECT 1" -b -o /dev/null
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD:-CheerDeck_Dev#2024}" -C -Q "SELECT 1" -b -o /dev/null
       interval: 10s
       timeout: 5s
       retries: 10
@@ -29,7 +29,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:5100
-      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=CheerDeck;User Id=sa;Password=CheerDeck_Dev#2024;TrustServerCertificate=True"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=CheerDeck;User Id=sa;Password=${SA_PASSWORD:-CheerDeck_Dev#2024};TrustServerCertificate=True"
       UseInMemoryDatabase: "false"
       Stripe__SecretKey: ""
       Stripe__PublishableKey: ""
@@ -55,7 +55,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:5200
-      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=CheerDeck;User Id=sa;Password=CheerDeck_Dev#2024;TrustServerCertificate=True"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=CheerDeck;User Id=sa;Password=${SA_PASSWORD:-CheerDeck_Dev#2024};TrustServerCertificate=True"
       UseInMemoryDatabase: "false"
       Stripe__SecretKey: ""
       Stripe__PublishableKey: ""
@@ -81,7 +81,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:5300
-      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=CheerDeck;User Id=sa;Password=CheerDeck_Dev#2024;TrustServerCertificate=True"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=CheerDeck;User Id=sa;Password=${SA_PASSWORD:-CheerDeck_Dev#2024};TrustServerCertificate=True"
       UseInMemoryDatabase: "false"
       Stripe__SecretKey: ""
       Stripe__PublishableKey: ""

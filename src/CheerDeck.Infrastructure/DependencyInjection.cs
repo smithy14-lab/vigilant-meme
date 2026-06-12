@@ -61,7 +61,7 @@ public static class DependencyInjection
             options.LogoutPath = "/account/logout";
             options.AccessDeniedPath = "/account/access-denied";
             options.Cookie.HttpOnly = true;
-            options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
             options.ExpireTimeSpan = TimeSpan.FromDays(14);
             options.SlidingExpiration = true;
         });
