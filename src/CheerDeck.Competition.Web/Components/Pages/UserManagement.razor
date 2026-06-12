@@ -1,0 +1,208 @@
+@page "/users"
+@attribute [Authorize(Roles = $"{AppRoles.EventProducer}")]
+@rendermode InteractiveServer
+@inject UserManager<AppUser> UserManager
+@inject ITenantContext TenantContext
+
+<PageTitle>User Management - CheerDeck Competitions</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>User Management</h1>
+    <button class="btn btn-primary" @onclick="ShowInvite">Invite User</button>
+</div>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible">
+            @_message
+            <button type="button" class="btn-close" @onclick="() => _message = null"></button>
+        </div>
+    }
+
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in _users)
+            {
+                <tr>
+                    <td>@user.FullName</td>
+                    <td>@user.Email</td>
+                    <td><span class="badge bg-primary">@user.Role</span></td>
+                    <td>
+                        @if (user.IsLockedOut)
+                        {
+                            <span class="badge bg-danger">Locked</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                    </td>
+                    <td>
+                        @if (user.IsLockedOut)
+                        {
+                            <button class="btn btn-sm btn-outline-success" @onclick="() => UnlockUser(user.Id)">Unlock</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (_showInvite)
+{
+    <div class="modal show d-block" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Invite User</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showInvite = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" @bind="_inviteFullName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" @bind="_inviteEmail" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Temporary Password</label>
+                        <input type="text" class="form-control" @bind="_invitePassword" />
+                        <div class="form-text">Must include uppercase, lowercase, digit, and special character (min 6 chars)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" @bind="_inviteRole">
+                            <option value="@AppRoles.Judge">Judge</option>
+                            <option value="@AppRoles.Tabulator">Tabulator</option>
+                            <option value="@AppRoles.Announcer">Announcer</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => _showInvite = false">Cancel</button>
+                    <button class="btn btn-primary" @onclick="CreateUser" disabled="@_creating">
+                        @if (_creating)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Create User
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _showInvite;
+    private bool _creating;
+    private string? _message;
+    private bool _isError;
+    private List<UserViewModel> _users = new();
+
+    private string _inviteFullName = "";
+    private string _inviteEmail = "";
+    private string _invitePassword = "";
+    private string _inviteRole = AppRoles.Judge;
+
+    private record UserViewModel(string Id, string? FullName, string? Email, string Role, bool IsLockedOut);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+        _loading = false;
+    }
+
+    private async Task LoadUsers()
+    {
+        var tenantId = TenantContext.TenantId;
+        var allUsers = UserManager.Users
+            .Where(u => u.TenantId == tenantId)
+            .OrderBy(u => u.FullName)
+            .ToList();
+
+        _users = new List<UserViewModel>();
+        foreach (var user in allUsers)
+        {
+            var roles = await UserManager.GetRolesAsync(user);
+            var isLockedOut = await UserManager.IsLockedOutAsync(user);
+            _users.Add(new UserViewModel(user.Id, user.FullName, user.Email, roles.FirstOrDefault() ?? "None", isLockedOut));
+        }
+    }
+
+    private void ShowInvite()
+    {
+        _inviteFullName = "";
+        _inviteEmail = "";
+        _invitePassword = "";
+        _inviteRole = AppRoles.Judge;
+        _showInvite = true;
+    }
+
+    private async Task CreateUser()
+    {
+        if (string.IsNullOrWhiteSpace(_inviteEmail) || string.IsNullOrWhiteSpace(_invitePassword))
+            return;
+
+        _creating = true;
+        var user = new AppUser
+        {
+            UserName = _inviteEmail,
+            Email = _inviteEmail,
+            FullName = _inviteFullName,
+            TenantId = TenantContext.TenantId
+        };
+
+        var result = await UserManager.CreateAsync(user, _invitePassword);
+        if (result.Succeeded)
+        {
+            await UserManager.AddToRoleAsync(user, _inviteRole);
+            _message = $"User {_inviteEmail} created with role {_inviteRole}.";
+            _isError = false;
+            _showInvite = false;
+            await LoadUsers();
+        }
+        else
+        {
+            _message = string.Join("; ", result.Errors.Select(e => e.Description));
+            _isError = true;
+        }
+
+        _creating = false;
+    }
+
+    private async Task UnlockUser(string userId)
+    {
+        var user = await UserManager.FindByIdAsync(userId);
+        if (user is not null)
+        {
+            await UserManager.SetLockoutEndDateAsync(user, null);
+            _message = $"{user.FullName ?? user.Email} has been unlocked.";
+            _isError = false;
+            await LoadUsers();
+        }
+    }
+}

@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.RateLimiting;
+using CheerDeck.Api.Middleware;
 using CheerDeck.Infrastructure;
 using CheerDeck.Infrastructure.Data;
 using CheerDeck.Infrastructure.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddScoped<GlobalExceptionHandler>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -61,6 +63,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseMiddleware<GlobalExceptionHandler>();
 app.UseCors("AllowApps");
 app.UseRateLimiter();
 app.UseAuthentication();

@@ -181,5 +181,16 @@
                 </NavLink>
             </div>
         </AuthorizeView>
+
+        <AuthorizeView Roles="@AppRoles.ClubOwner">
+            <div class="nav-item px-3 pt-2">
+                <small class="text-muted ps-3">SETTINGS</small>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="users">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Users
+                </NavLink>
+            </div>
+        </AuthorizeView>
     </nav>
 </div>
