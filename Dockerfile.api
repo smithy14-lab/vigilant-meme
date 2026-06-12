@@ -1,0 +1,37 @@
+# ---- Build Stage ----
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Copy solution and all project files for layer-cached restore
+COPY CheerDeck.slnx ./
+COPY src/CheerDeck.Api/CheerDeck.Api.csproj                        src/CheerDeck.Api/
+COPY src/CheerDeck.Application/CheerDeck.Application.csproj        src/CheerDeck.Application/
+COPY src/CheerDeck.Infrastructure/CheerDeck.Infrastructure.csproj  src/CheerDeck.Infrastructure/
+COPY src/CheerDeck.Domain/CheerDeck.Domain.csproj                  src/CheerDeck.Domain/
+# Projects in the solution that are not direct dependencies but needed for restore
+COPY src/CheerDeck.Shared.UI/CheerDeck.Shared.UI.csproj            src/CheerDeck.Shared.UI/
+COPY src/CheerDeck.Club.Web/CheerDeck.Club.Web.csproj              src/CheerDeck.Club.Web/
+COPY src/CheerDeck.Competition.Web/CheerDeck.Competition.Web.csproj src/CheerDeck.Competition.Web/
+COPY tests/CheerDeck.Tests/CheerDeck.Tests.csproj                  tests/CheerDeck.Tests/
+
+RUN dotnet restore src/CheerDeck.Api/CheerDeck.Api.csproj
+
+# Copy full source and publish
+COPY src/ src/
+COPY tests/ tests/
+RUN dotnet publish src/CheerDeck.Api/CheerDeck.Api.csproj \
+    -c Release \
+    -o /app/publish \
+    --no-restore
+
+# ---- Runtime Stage ----
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+WORKDIR /app
+
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_URLS=http://+:5100
+
+EXPOSE 5100
+
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "CheerDeck.Api.dll"]

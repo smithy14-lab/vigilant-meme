@@ -5,7 +5,9 @@ using CheerDeck.Application.Services;
 using CheerDeck.Domain.Integration;
 using CheerDeck.Infrastructure.Data;
 using CheerDeck.Infrastructure.Identity;
+using CheerDeck.Infrastructure.Services;
 using CheerDeck.Infrastructure.Stubs;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -47,20 +49,32 @@ public static class DependencyInjection
             options.User.RequireUniqueEmail = true;
         })
         .AddEntityFrameworkStores<AppDbContext>()
-        .AddDefaultTokenProviders();
+        .AddDefaultTokenProviders()
+        .AddClaimsPrincipalFactory<AppUserClaimsPrincipalFactory>();
+
+        services.ConfigureApplicationCookie(options =>
+        {
+            options.LoginPath = "/account/login";
+            options.LogoutPath = "/account/logout";
+            options.AccessDeniedPath = "/account/access-denied";
+            options.Cookie.HttpOnly = true;
+            options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            options.ExpireTimeSpan = TimeSpan.FromDays(14);
+            options.SlidingExpiration = true;
+        });
 
         services.AddScoped<HttpTenantContext>();
         services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<HttpTenantContext>());
 
-        // Integration stubs (swappable via configuration)
-        var integrationProvider = configuration.GetValue<string>("IntegrationProvider") ?? "Stub";
-        if (integrationProvider == "Stub")
-        {
-            services.AddScoped<IEligibilityProvider, StubEligibilityProvider>();
-            services.AddScoped<IMusicLicenceProvider, StubMusicLicenceProvider>();
+        services.AddScoped<IEligibilityProvider, StubEligibilityProvider>();
+        services.AddScoped<IMusicLicenceProvider, StubMusicLicenceProvider>();
+
+        if (!string.IsNullOrEmpty(configuration["Stripe:SecretKey"]))
+            services.AddScoped<IPaymentGateway, StripePaymentGateway>();
+        else
             services.AddScoped<IPaymentGateway, StubPaymentGateway>();
-        }
-        // Real implementations would be registered here based on configuration
+
+        services.AddScoped<IEmailService, StubEmailService>();
 
         // Application services
         services.AddScoped<AthleteService>();

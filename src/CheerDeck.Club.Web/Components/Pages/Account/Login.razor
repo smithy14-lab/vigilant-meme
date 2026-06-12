@@ -1,0 +1,45 @@
+@page "/account/login"
+@layout LoginLayout
+
+<PageTitle>Login - CheerDeck Club</PageTitle>
+
+@if (!string.IsNullOrEmpty(Error))
+{
+    <div class="alert alert-danger">
+        @(Error switch
+        {
+            "InvalidCredentials" => "Invalid email or password. Please try again.",
+            _ => "An error occurred. Please try again."
+        })
+    </div>
+}
+
+<form method="post" action="/account/perform-login">
+    <div class="mb-3">
+        <label class="form-label">Email address</label>
+        <input type="email" name="email" class="form-control" placeholder="you@example.com" required autofocus />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Password</label>
+        <input type="password" name="password" class="form-control" required />
+    </div>
+    <div class="form-check mb-3">
+        <input type="checkbox" name="rememberMe" value="true" class="form-check-input" id="rememberMe" />
+        <label class="form-check-label" for="rememberMe">Remember me</label>
+    </div>
+    <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+    <button type="submit" class="btn btn-primary w-100 mb-3">Sign In</button>
+</form>
+
+<div class="text-center">
+    <p class="mb-1">Don't have an account? <a href="/account/register">Register here</a></p>
+    <p class="text-muted"><small>Demo: clubowner@stardust.co.uk / Club0wner!</small></p>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? Error { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+}

@@ -6,8 +6,19 @@
     </div>
 
     <main>
-        <div class="top-row px-4">
+        <div class="top-row px-4 d-flex justify-content-between align-items-center">
             <span class="text-muted">CheerDeck Competitions</span>
+            <AuthorizeView>
+                <Authorized>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-muted small">@(context.User.FindFirst("FullName")?.Value ?? context.User.Identity?.Name)</span>
+                        <span class="badge bg-secondary">@context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</span>
+                        <form method="post" action="/account/perform-logout">
+                            <button type="submit" class="btn btn-outline-danger btn-sm">Logout</button>
+                        </form>
+                    </div>
+                </Authorized>
+            </AuthorizeView>
         </div>
 
         <article class="content px-4">

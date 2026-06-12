@@ -14,125 +14,157 @@
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="join">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Join / Register
-            </NavLink>
-        </div>
+        <AuthorizeView Roles="@($"{AppRoles.ClubOwner},{AppRoles.ClubAdmin},{AppRoles.Coach},{AppRoles.Guardian}")">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="join">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Join / Register
+                </NavLink>
+            </div>
+        </AuthorizeView>
 
-        <div class="nav-item px-3 pt-2">
-            <small class="text-muted ps-3">PEOPLE</small>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="athletes">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Athletes
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="guardians">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Guardians
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="coaches">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Coaches
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="teams">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Teams
-            </NavLink>
-        </div>
+        <AuthorizeView Roles="@($"{AppRoles.ClubOwner},{AppRoles.ClubAdmin},{AppRoles.Coach}")">
+            <div class="nav-item px-3 pt-2">
+                <small class="text-muted ps-3">PEOPLE</small>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="athletes">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Athletes
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="guardians">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Guardians
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="coaches">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Coaches
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="teams">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Teams
+                </NavLink>
+            </div>
 
-        <div class="nav-item px-3 pt-2">
-            <small class="text-muted ps-3">SCHEDULING</small>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="venues">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Venues
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="terms">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Terms & Classes
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="classes">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Classes
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="private-lessons">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Private Lessons
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="camps">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Camps
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="attendance">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Attendance
-            </NavLink>
-        </div>
+            <div class="nav-item px-3 pt-2">
+                <small class="text-muted ps-3">SCHEDULING</small>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="venues">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Venues
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="terms">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Terms & Classes
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="classes">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Classes
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="private-lessons">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Private Lessons
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="camps">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Camps
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="attendance">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Attendance
+                </NavLink>
+            </div>
+        </AuthorizeView>
 
-        <div class="nav-item px-3 pt-2">
-            <small class="text-muted ps-3">PARENT PORTAL</small>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="parent">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Dashboard
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="parent/athletes">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> My Athletes
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="parent/invoices">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> My Invoices
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="parent/waivers">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> My Waivers
-            </NavLink>
-        </div>
+        <AuthorizeView Roles="@($"{AppRoles.Guardian}")">
+            <div class="nav-item px-3 pt-2">
+                <small class="text-muted ps-3">MY PORTAL</small>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="parent">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Dashboard
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="parent/athletes">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> My Athletes
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="parent/invoices">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> My Invoices
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="parent/waivers">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> My Waivers
+                </NavLink>
+            </div>
+        </AuthorizeView>
 
-        <div class="nav-item px-3 pt-2">
-            <small class="text-muted ps-3">FINANCE & COMMS</small>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="invoices">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Invoices
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="messages">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Messages
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="chat">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Chat
-            </NavLink>
-        </div>
+        <AuthorizeView Roles="@($"{AppRoles.ClubOwner},{AppRoles.ClubAdmin}")">
+            <div class="nav-item px-3 pt-2">
+                <small class="text-muted ps-3">PARENT PORTAL</small>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="parent">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Dashboard
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="parent/athletes">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> My Athletes
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="parent/invoices">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> My Invoices
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="parent/waivers">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> My Waivers
+                </NavLink>
+            </div>
 
-        <div class="nav-item px-3 pt-2">
-            <small class="text-muted ps-3">ADMIN</small>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="waivers">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Waivers
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="reminders">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Reminders
-            </NavLink>
-        </div>
+            <div class="nav-item px-3 pt-2">
+                <small class="text-muted ps-3">FINANCE & COMMS</small>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="invoices">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Invoices
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="messages">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Messages
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="chat">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Chat
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3 pt-2">
+                <small class="text-muted ps-3">ADMIN</small>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="waivers">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Waivers
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="reminders">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Reminders
+                </NavLink>
+            </div>
+        </AuthorizeView>
     </nav>
 </div>
