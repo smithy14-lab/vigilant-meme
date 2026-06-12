@@ -13,7 +13,6 @@ namespace CheerDeck.Api.Controllers;
 public class WebhooksController(
     IConfiguration configuration,
     InvoiceService invoiceService,
-    EntryService entryService,
     NotificationService notifications,
     IAppDbContext db,
     ILogger<WebhooksController> logger) : ControllerBase
@@ -75,6 +74,38 @@ public class WebhooksController(
                                 await db.SaveChangesAsync(ct);
                                 logger.LogInformation("Entry {EntryId} confirmed as paid via checkout session", entryId);
                             }
+                        }
+                    }
+                    break;
+
+                case "customer.subscription.updated":
+                case "customer.subscription.deleted":
+                    var subMetadata = dataObj.GetProperty("metadata");
+                    if (subMetadata.TryGetProperty("tenantId", out var tenantIdProp) &&
+                        Guid.TryParse(tenantIdProp.GetString(), out var tenantId))
+                    {
+                        var tenant = await db.Tenants.FindAsync(new object[] { tenantId }, ct);
+                        if (tenant is not null)
+                        {
+                            var subStatus = dataObj.GetProperty("status").GetString();
+                            tenant.SubscriptionStatus = subStatus switch
+                            {
+                                "active" => CheerDeck.Domain.Common.SubscriptionStatus.Active,
+                                "past_due" => CheerDeck.Domain.Common.SubscriptionStatus.PastDue,
+                                "canceled" or "cancelled" => CheerDeck.Domain.Common.SubscriptionStatus.Cancelled,
+                                "trialing" => CheerDeck.Domain.Common.SubscriptionStatus.Trialing,
+                                _ => tenant.SubscriptionStatus
+                            };
+
+                            if (dataObj.TryGetProperty("current_period_end", out var periodEnd))
+                            {
+                                var endEpoch = periodEnd.GetInt64();
+                                tenant.SubscriptionEndDate = DateTimeOffset.FromUnixTimeSeconds(endEpoch).UtcDateTime;
+                            }
+
+                            tenant.UpdatedAt = DateTime.UtcNow;
+                            await db.SaveChangesAsync(ct);
+                            logger.LogInformation("Tenant {TenantId} subscription updated to {Status}", tenantId, subStatus);
                         }
                     }
                     break;
