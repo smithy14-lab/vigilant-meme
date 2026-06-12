@@ -69,6 +69,12 @@ Thumbs.db
 
 # User secrets
 secrets.json
+.env
+.env.*
+!.env.example
+
+# Publish output
+publish/
 
 # EF Migrations local
 *.db

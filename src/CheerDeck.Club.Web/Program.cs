@@ -55,7 +55,11 @@ app.MapPost("/account/perform-login", async (
 
     var result = await signInManager.PasswordSignInAsync(email, password, rememberMe, lockoutOnFailure: true);
     if (result.Succeeded)
-        return Results.Redirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
+    {
+        var safeUrl = !string.IsNullOrEmpty(returnUrl) && Uri.IsWellFormedUriString(returnUrl, UriKind.Relative)
+            ? returnUrl : "/";
+        return Results.Redirect(safeUrl);
+    }
 
     if (result.IsLockedOut)
         return Results.Redirect("/account/login?error=LockedOut");
