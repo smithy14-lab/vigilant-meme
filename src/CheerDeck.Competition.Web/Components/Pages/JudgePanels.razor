@@ -1,0 +1,276 @@
+@page "/judge-panels"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject EventService EventService
+@inject AppDbContext Db
+@inject ITenantContext TenantContext
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Judge Panels</PageTitle>
+
+<div class="container-fluid">
+    <h1 class="mb-4">Judge Panels</h1>
+
+    <!-- Event Selector -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <label class="form-label">Select Event</label>
+            <select class="form-select" @onchange="OnEventSelected">
+                <option value="">-- Select Event --</option>
+                @if (events is not null)
+                {
+                    @foreach (var e in events)
+                    {
+                        <option value="@e.Id">@e.Name</option>
+                    }
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (selectedEventId is not null)
+    {
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>Panels for @(events?.FirstOrDefault(e => e.Id == selectedEventId)?.Name)</h4>
+            <button class="btn btn-primary" @onclick="() => showCreatePanel = !showCreatePanel">
+                @(showCreatePanel ? "Cancel" : "New Panel")
+            </button>
+        </div>
+
+        @if (showCreatePanel)
+        {
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-8">
+                            <label class="form-label">Panel Name</label>
+                            <input type="text" class="form-control" @bind="newPanelName" placeholder="e.g. Panel A - Level 3" />
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-success" @onclick="CreatePanel" disabled="@string.IsNullOrWhiteSpace(newPanelName)">Create Panel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (panels is null)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        }
+        else if (!panels.Any())
+        {
+            <div class="alert alert-info">No judge panels for this event. Create one to get started.</div>
+        }
+        else
+        {
+            @foreach (var panel in panels)
+            {
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">@panel.Name</h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ToggleMemberForm(panel.Id)">Add Member</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeletePanel(panel.Id)">Delete</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        @if (memberFormPanelId == panel.Id)
+                        {
+                            <div class="row g-2 align-items-end mb-3">
+                                <div class="col-md-3">
+                                    <label class="form-label">Judge Name</label>
+                                    <input type="text" class="form-control" @bind="newMember.JudgeName" placeholder="e.g. Jane Smith" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Role</label>
+                                    <select class="form-select" @bind="newMember.Role">
+                                        <option value="Judge">Judge</option>
+                                        <option value="Head Judge">Head Judge</option>
+                                        <option value="Safety">Safety</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">User ID (optional)</label>
+                                    <input type="text" class="form-control" @bind="newMember.JudgeUserId" placeholder="User ID" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Caption Index</label>
+                                    <input type="number" class="form-control" @bind="newMember.AssignedCaptionIndex" />
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-success w-100" @onclick="() => AddMember(panel.Id)" disabled="@string.IsNullOrWhiteSpace(newMember.JudgeName)">Add</button>
+                                </div>
+                            </div>
+                        }
+
+                        @if (!panel.Members.Any())
+                        {
+                            <p class="text-muted mb-0">No members assigned to this panel.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Role</th>
+                                            <th>Caption Assignment</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var member in panel.Members.OrderBy(m => m.Role == "Head Judge" ? 0 : m.Role == "Judge" ? 1 : 2))
+                                        {
+                                            <tr>
+                                                <td>@member.JudgeName</td>
+                                                <td>
+                                                    <span class="badge @RoleBadgeClass(member.Role)">@member.Role</span>
+                                                </td>
+                                                <td>
+                                                    @if (member.AssignedCaptionIndex.HasValue)
+                                                    {
+                                                        <span>Caption @member.AssignedCaptionIndex</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">All</span>
+                                                    }
+                                                </td>
+                                                <td class="text-end">
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveMember(member.Id)">Remove</button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    }
+    else
+    {
+        <div class="alert alert-secondary">Select an event above to manage its judge panels.</div>
+    }
+</div>
+
+@code {
+    private List<Event>? events;
+    private List<JudgePanel>? panels;
+    private Guid? selectedEventId;
+    private string newPanelName = string.Empty;
+    private JudgePanelMember newMember = new() { Role = "Judge" };
+    private bool showCreatePanel;
+    private Guid? memberFormPanelId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        events = await EventService.GetAllAsync();
+    }
+
+    private async Task OnEventSelected(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var eventId))
+        {
+            selectedEventId = eventId;
+            await LoadPanels();
+        }
+        else
+        {
+            selectedEventId = null;
+            panels = null;
+        }
+    }
+
+    private async Task LoadPanels()
+    {
+        if (selectedEventId is null) return;
+
+        panels = await Db.JudgePanels
+            .Include(p => p.Members)
+            .Where(p => p.EventId == selectedEventId)
+            .OrderBy(p => p.Name)
+            .ToListAsync();
+    }
+
+    private async Task CreatePanel()
+    {
+        if (string.IsNullOrWhiteSpace(newPanelName) || selectedEventId is null)
+            return;
+
+        var panel = new JudgePanel
+        {
+            EventId = selectedEventId.Value,
+            Name = newPanelName,
+            TenantId = TenantContext.TenantId,
+            CreatedBy = TenantContext.UserId
+        };
+
+        Db.JudgePanels.Add(panel);
+        await Db.SaveChangesAsync();
+
+        newPanelName = string.Empty;
+        showCreatePanel = false;
+        await LoadPanels();
+    }
+
+    private async Task DeletePanel(Guid panelId)
+    {
+        var panel = await Db.JudgePanels.FindAsync(panelId);
+        if (panel is not null)
+        {
+            Db.JudgePanels.Remove(panel);
+            await Db.SaveChangesAsync();
+            await LoadPanels();
+        }
+    }
+
+    private void ToggleMemberForm(Guid panelId)
+    {
+        memberFormPanelId = memberFormPanelId == panelId ? null : panelId;
+        newMember = new() { Role = "Judge" };
+    }
+
+    private async Task AddMember(Guid panelId)
+    {
+        if (string.IsNullOrWhiteSpace(newMember.JudgeName))
+            return;
+
+        newMember.PanelId = panelId;
+        newMember.TenantId = TenantContext.TenantId;
+        newMember.CreatedBy = TenantContext.UserId;
+        Db.JudgePanelMembers.Add(newMember);
+        await Db.SaveChangesAsync();
+
+        newMember = new() { Role = "Judge" };
+        memberFormPanelId = null;
+        await LoadPanels();
+    }
+
+    private async Task RemoveMember(Guid memberId)
+    {
+        var member = await Db.JudgePanelMembers.FindAsync(memberId);
+        if (member is not null)
+        {
+            Db.JudgePanelMembers.Remove(member);
+            await Db.SaveChangesAsync();
+            await LoadPanels();
+        }
+    }
+
+    private static string RoleBadgeClass(string role) => role switch
+    {
+        "Head Judge" => "bg-primary",
+        "Judge" => "bg-info text-dark",
+        "Safety" => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+}

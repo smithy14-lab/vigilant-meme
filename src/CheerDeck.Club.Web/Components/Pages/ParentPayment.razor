@@ -1,0 +1,160 @@
+@page "/parent/invoices/{InvoiceId:guid}/pay"
+@attribute [Authorize(Roles = AppRoles.Guardian)]
+@rendermode InteractiveServer
+@inject InvoiceService InvoiceService
+@inject NavigationManager Navigation
+
+<PageTitle>Pay Invoice - CheerDeck</PageTitle>
+
+<div class="container" style="max-width: 640px;">
+    @if (_loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (_invoice is null)
+    {
+        <div class="alert alert-danger">Invoice not found.</div>
+    }
+    else if (_invoice.Status == InvoiceStatus.Paid)
+    {
+        <div class="card border-success shadow-sm mt-4">
+            <div class="card-body text-center py-5">
+                <div class="rounded-circle bg-success d-inline-flex align-items-center justify-content-center mb-3" style="width:64px;height:64px;">
+                    <span class="text-white" style="font-size:2rem;">&#10003;</span>
+                </div>
+                <h2 class="mb-2">Already Paid</h2>
+                <p class="text-muted mb-4">Invoice @_invoice.InvoiceNumber was paid on @_invoice.PaidDate?.ToString("dd MMM yyyy").</p>
+                <a href="/parent/invoices" class="btn btn-outline-primary">Back to Invoices</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-white py-3">
+                <h4 class="mb-0">Pay Invoice @_invoice.InvoiceNumber</h4>
+            </div>
+            <div class="card-body">
+                <div class="border rounded p-3 mb-4 bg-light">
+                    <div class="row">
+                        <div class="col-6 text-muted mb-2">Invoice Number</div>
+                        <div class="col-6 fw-bold mb-2">@_invoice.InvoiceNumber</div>
+                        <div class="col-6 text-muted mb-2">Type</div>
+                        <div class="col-6 mb-2">@_invoice.Type</div>
+                        <div class="col-6 text-muted mb-2">Issue Date</div>
+                        <div class="col-6 mb-2">@_invoice.IssueDate.ToString("dd MMM yyyy")</div>
+                        <div class="col-6 text-muted mb-2">Due Date</div>
+                        <div class="col-6 mb-2">@_invoice.DueDate.ToString("dd MMM yyyy")</div>
+                    </div>
+                </div>
+
+                @if (_invoice.LineItems.Any())
+                {
+                    <table class="table table-sm mb-3">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Price</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in _invoice.LineItems)
+                            {
+                                <tr>
+                                    <td>@item.Description</td>
+                                    <td class="text-end">@item.Quantity</td>
+                                    <td class="text-end">@item.UnitPrice.ToString("C")</td>
+                                    <td class="text-end">@item.Total.ToString("C")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                <div class="card bg-light border-0 mb-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Total Due</h5>
+                            <h3 class="mb-0 text-success fw-bold">@_invoice.Total.ToString("C")</h3>
+                        </div>
+                    </div>
+                </div>
+
+                @if (_error is not null)
+                {
+                    <div class="alert alert-danger">@_error</div>
+                }
+
+                @if (_paymentIntent is not null)
+                {
+                    <div class="alert alert-info">
+                        Payment initiated. Reference: <code>@_paymentIntent.Id</code>
+                        <br />
+                        <small class="text-muted">In production this will redirect to Stripe Checkout.</small>
+                    </div>
+                }
+
+                <button class="btn btn-success btn-lg w-100" @onclick="InitiatePayment" disabled="@_processing">
+                    @if (_processing)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        <span>Processing...</span>
+                    }
+                    else
+                    {
+                        <span>Pay @_invoice.Total.ToString("C")</span>
+                    }
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid InvoiceId { get; set; }
+
+    private Invoice? _invoice;
+    private bool _loading = true;
+    private bool _processing;
+    private string? _error;
+    private CheerDeck.Domain.Integration.PaymentIntent? _paymentIntent;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var invoices = await InvoiceService.GetAllAsync();
+        _invoice = invoices.FirstOrDefault(i => i.Id == InvoiceId);
+        _loading = false;
+    }
+
+    private async Task InitiatePayment()
+    {
+        if (_invoice is null) return;
+
+        _processing = true;
+        _error = null;
+
+        try
+        {
+            _paymentIntent = await InvoiceService.InitiatePaymentAsync(_invoice.Id);
+
+            if (_paymentIntent.CheckoutUrl is not null)
+            {
+                Navigation.NavigateTo(_paymentIntent.CheckoutUrl, forceLoad: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Payment failed: {ex.Message}";
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+}

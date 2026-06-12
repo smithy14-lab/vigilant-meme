@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using CheerDeck.Infrastructure;
 using CheerDeck.Infrastructure.Data;
 using CheerDeck.Infrastructure.Identity;
@@ -70,32 +71,60 @@ app.MapPost("/account/perform-login", async (
 app.MapPost("/account/perform-register", async (
     HttpContext context,
     UserManager<AppUser> userManager,
-    SignInManager<AppUser> signInManager) =>
+    SignInManager<AppUser> signInManager,
+    AppDbContext db) =>
 {
     var form = await context.Request.ReadFormAsync();
     var email = form["email"].ToString();
     var password = form["password"].ToString();
     var confirmPassword = form["confirmPassword"].ToString();
     var fullName = form["fullName"].ToString();
+    var clubName = form["clubName"].ToString();
 
     if (password != confirmPassword)
         return Results.Redirect("/account/register?error=PasswordMismatch");
+
+    if (string.IsNullOrWhiteSpace(clubName))
+        return Results.Redirect("/account/register?error=ClubNameRequired");
+
+    var slug = clubName.ToLower().Replace(" ", "-").Replace("'", "");
+    slug = System.Text.RegularExpressions.Regex.Replace(slug, "[^a-z0-9-]", "");
+    var baseSlug = slug;
+    var counter = 1;
+    while (await db.Tenants.AnyAsync(t => t.Slug == slug))
+    {
+        slug = $"{baseSlug}-{counter++}";
+    }
+
+    var tenant = new CheerDeck.Domain.Common.Tenant
+    {
+        Name = clubName.Trim(),
+        Slug = slug,
+        Type = CheerDeck.Domain.Common.TenantType.Club,
+        ContactEmail = email,
+        IsActive = true
+    };
+    db.Tenants.Add(tenant);
+    await db.SaveChangesAsync();
 
     var user = new AppUser
     {
         UserName = email,
         Email = email,
         FullName = fullName,
-        TenantId = SeedData.ClubTenantId
+        TenantId = tenant.Id
     };
 
     var result = await userManager.CreateAsync(user, password);
     if (result.Succeeded)
     {
-        await userManager.AddToRoleAsync(user, AppRoles.Guardian);
+        await userManager.AddToRoleAsync(user, AppRoles.ClubOwner);
         await signInManager.SignInAsync(user, isPersistent: false);
         return Results.Redirect("/");
     }
+
+    db.Tenants.Remove(tenant);
+    await db.SaveChangesAsync();
 
     var errors = string.Join(",", result.Errors.Select(e => e.Code));
     return Results.Redirect($"/account/register?error={errors}");

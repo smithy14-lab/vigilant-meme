@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @inject InvoiceService InvoiceService
 @inject GuardianService GuardianService
+@inject NavigationManager Navigation
 
 <PageTitle>My Invoices - CheerDeck Club</PageTitle>
 
@@ -133,21 +134,9 @@ else
             .Sum(i => i.Total);
     }
 
-    private async Task PayInvoice(Guid invoiceId)
+    private void PayInvoice(Guid invoiceId)
     {
-        _paying = true;
-        _payingInvoiceId = invoiceId;
-
-        try
-        {
-            await InvoiceService.InitiatePaymentAsync(invoiceId);
-            await LoadInvoices();
-        }
-        finally
-        {
-            _paying = false;
-            _payingInvoiceId = null;
-        }
+        Navigation.NavigateTo($"/parent/invoices/{invoiceId}/pay");
     }
 
     private static string GetStatusBadgeClass(InvoiceStatus status) => status switch

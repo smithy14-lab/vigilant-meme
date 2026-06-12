@@ -53,4 +53,12 @@ public class StubPaymentGateway : IPaymentGateway
             Status: "cancelled",
             FailureReason: null));
     }
+
+    public Task<CheckoutSession> CreateCheckoutSessionAsync(decimal amount, string currency, string description,
+        string successUrl, string cancelUrl, Dictionary<string, string>? metadata = null, CancellationToken ct = default)
+    {
+        return Task.FromResult(new CheckoutSession(
+            Id: $"cs_stub_{Guid.NewGuid():N}".Substring(0, 24),
+            Url: successUrl));
+    }
 }

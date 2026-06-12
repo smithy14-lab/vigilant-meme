@@ -58,6 +58,22 @@
             </div>
         </AuthorizeView>
 
+        <AuthorizeView Roles="@($"{AppRoles.EventProducer},{AppRoles.Tabulator}")">
+            <div class="nav-item px-3 pt-2">
+                <small class="text-muted ps-3">SETUP</small>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="scoresheets">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Scoresheets
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="judge-panels">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Judge Panels
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
         <AuthorizeView Roles="@($"{AppRoles.EventProducer},{AppRoles.Judge},{AppRoles.Tabulator}")">
             <div class="nav-item px-3 pt-2">
                 <small class="text-muted ps-3">JUDGING</small>
@@ -73,6 +89,11 @@
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="results">
                     <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Results
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="awards">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Awards
                 </NavLink>
             </div>
         </AuthorizeView>
@@ -97,6 +118,11 @@
         <AuthorizeView Roles="@AppRoles.EventProducer">
             <div class="nav-item px-3 pt-2">
                 <small class="text-muted ps-3">SETTINGS</small>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="settings">
+                    <span class="bi bi-gear-fill" aria-hidden="true"></span> Settings
+                </NavLink>
             </div>
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="users">

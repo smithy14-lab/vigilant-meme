@@ -1,0 +1,383 @@
+@page "/scoresheets"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject EventService EventService
+@inject AppDbContext Db
+@inject ITenantContext TenantContext
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Scoresheet Templates</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Scoresheet Templates</h1>
+        <button class="btn btn-primary" @onclick="() => showCreateForm = !showCreateForm">
+            @(showCreateForm ? "Cancel" : "New Template")
+        </button>
+    </div>
+
+    @if (showCreateForm)
+    {
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">Create Template</h5></div>
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Event</label>
+                        <select class="form-select" @onchange="OnEventSelected">
+                            <option value="">-- Select Event --</option>
+                            @if (events is not null)
+                            {
+                                @foreach (var e in events)
+                                {
+                                    <option value="@e.Id">@e.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Division</label>
+                        <select class="form-select" @bind="newTemplate.DivisionId" disabled="@(selectedDivisions is null || !selectedDivisions.Any())">
+                            <option value="@Guid.Empty">-- Select Division --</option>
+                            @if (selectedDivisions is not null)
+                            {
+                                @foreach (var d in selectedDivisions)
+                                {
+                                    <option value="@d.Id">@d.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" @bind="newTemplate.Name" placeholder="e.g. Level 3 USS" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Type</label>
+                        <select class="form-select" @bind="newTemplate.Type">
+                            @foreach (var st in Enum.GetValues<ScoresheetType>())
+                            {
+                                <option value="@st">@st</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <button class="btn btn-success w-100" @onclick="CreateTemplate" disabled="@(string.IsNullOrWhiteSpace(newTemplate.Name) || newTemplate.DivisionId == Guid.Empty)">
+                            Create
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (templates is null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!templates.Any())
+    {
+        <div class="alert alert-info">No scoresheet templates found. Create one to get started.</div>
+    }
+    else
+    {
+        @foreach (var template in templates)
+        {
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0 d-inline">@template.Name</h5>
+                        <span class="badge bg-info text-dark ms-2">@template.Type</span>
+                        <small class="text-muted ms-2">@template.Division?.Name</small>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ToggleCaptionForm(template.Id)">Add Caption</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteTemplate(template.Id)">Delete</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (captionFormTemplateId == template.Id)
+                    {
+                        <div class="row g-2 align-items-end mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Caption Name</label>
+                                <input type="text" class="form-control" @bind="newCaption.Name" placeholder="e.g. Stunts" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Max Score</label>
+                                <input type="number" class="form-control" @bind="newCaption.MaxScore" step="0.1" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Weight</label>
+                                <input type="number" class="form-control" @bind="newCaption.Weight" step="0.1" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Sort Order</label>
+                                <input type="number" class="form-control" @bind="newCaption.SortOrder" />
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-success w-100" @onclick="() => AddCaption(template.Id)" disabled="@string.IsNullOrWhiteSpace(newCaption.Name)">Add</button>
+                            </div>
+                        </div>
+                    }
+
+                    @if (!template.Captions.Any())
+                    {
+                        <p class="text-muted mb-0">No captions configured yet.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Caption</th>
+                                        <th>Max Score</th>
+                                        <th>Weight</th>
+                                        <th>Order</th>
+                                        <th>Subcaptions</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var caption in template.Captions.OrderBy(c => c.SortOrder))
+                                    {
+                                        <tr>
+                                            <td><strong>@caption.Name</strong></td>
+                                            <td>@caption.MaxScore</td>
+                                            <td>@caption.Weight</td>
+                                            <td>@caption.SortOrder</td>
+                                            <td>@caption.Subcaptions.Count</td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => ToggleSubcaptionForm(caption.Id)">Add Sub</button>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteCaption(caption.Id)">Remove</button>
+                                            </td>
+                                        </tr>
+
+                                        @if (subcaptionFormCaptionId == caption.Id)
+                                        {
+                                            <tr>
+                                                <td colspan="6">
+                                                    <div class="row g-2 align-items-end ps-4">
+                                                        <div class="col-md-2">
+                                                            <label class="form-label">Name</label>
+                                                            <input type="text" class="form-control form-control-sm" @bind="newSubcaption.Name" placeholder="e.g. Difficulty" />
+                                                        </div>
+                                                        <div class="col-md-1">
+                                                            <label class="form-label">Min</label>
+                                                            <input type="number" class="form-control form-control-sm" @bind="newSubcaption.MinScore" step="0.1" />
+                                                        </div>
+                                                        <div class="col-md-1">
+                                                            <label class="form-label">Max</label>
+                                                            <input type="number" class="form-control form-control-sm" @bind="newSubcaption.MaxScore" step="0.1" />
+                                                        </div>
+                                                        <div class="col-md-1">
+                                                            <label class="form-label">Incr</label>
+                                                            <input type="number" class="form-control form-control-sm" @bind="newSubcaption.Increment" step="0.1" />
+                                                        </div>
+                                                        <div class="col-md-1">
+                                                            <label class="form-label">Weight</label>
+                                                            <input type="number" class="form-control form-control-sm" @bind="newSubcaption.Weight" step="0.1" />
+                                                        </div>
+                                                        <div class="col-md-1">
+                                                            <label class="form-label">Order</label>
+                                                            <input type="number" class="form-control form-control-sm" @bind="newSubcaption.SortOrder" />
+                                                        </div>
+                                                        <div class="col-md-1">
+                                                            <button class="btn btn-sm btn-success w-100" @onclick="() => AddSubcaption(caption.Id)" disabled="@string.IsNullOrWhiteSpace(newSubcaption.Name)">Add</button>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+
+                                        @foreach (var sub in caption.Subcaptions.OrderBy(s => s.SortOrder))
+                                        {
+                                            <tr class="table-light">
+                                                <td class="ps-4">-- @sub.Name</td>
+                                                <td>@sub.MinScore - @sub.MaxScore</td>
+                                                <td>@sub.Weight</td>
+                                                <td>@sub.SortOrder</td>
+                                                <td><small class="text-muted">incr: @sub.Increment</small></td>
+                                                <td class="text-end">
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSubcaption(sub.Id)">Remove</button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+
+                <!-- Template Preview -->
+                @if (template.Captions.Any())
+                {
+                    <div class="card-footer bg-light">
+                        <h6 class="mb-2">Preview</h6>
+                        <div class="row">
+                            @foreach (var caption in template.Captions.OrderBy(c => c.SortOrder))
+                            {
+                                <div class="col-md-4 mb-2">
+                                    <div class="border rounded p-2">
+                                        <strong>@caption.Name</strong>
+                                        <small class="text-muted">(max: @caption.MaxScore, weight: @caption.Weight)</small>
+                                        @if (caption.Subcaptions.Any())
+                                        {
+                                            <ul class="list-unstyled mb-0 mt-1 ps-3">
+                                                @foreach (var sub in caption.Subcaptions.OrderBy(s => s.SortOrder))
+                                                {
+                                                    <li><small>@sub.Name: @sub.MinScore - @sub.MaxScore (x@sub.Weight)</small></li>
+                                                }
+                                            </ul>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<ScoresheetTemplate>? templates;
+    private List<Event>? events;
+    private List<Division>? selectedDivisions;
+    private ScoresheetTemplate newTemplate = new();
+    private ScoresheetCaption newCaption = new() { MaxScore = 10, Weight = 1.0m };
+    private ScoresheetSubcaption newSubcaption = new() { MinScore = 0, MaxScore = 10, Increment = 0.1m, Weight = 1.0m };
+    private bool showCreateForm;
+    private Guid? captionFormTemplateId;
+    private Guid? subcaptionFormCaptionId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        events = await EventService.GetAllAsync();
+        await LoadTemplates();
+    }
+
+    private async Task LoadTemplates()
+    {
+        templates = await Db.ScoresheetTemplates
+            .Include(t => t.Division)
+            .Include(t => t.Captions)
+                .ThenInclude(c => c.Subcaptions)
+            .OrderBy(t => t.Name)
+            .ToListAsync();
+    }
+
+    private void OnEventSelected(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var eventId))
+        {
+            var evt = events?.FirstOrDefault(ev => ev.Id == eventId);
+            selectedDivisions = evt?.Divisions.OrderBy(d => d.SortOrder).ToList();
+        }
+        else
+        {
+            selectedDivisions = null;
+        }
+    }
+
+    private async Task CreateTemplate()
+    {
+        if (string.IsNullOrWhiteSpace(newTemplate.Name) || newTemplate.DivisionId == Guid.Empty)
+            return;
+
+        newTemplate.TenantId = TenantContext.TenantId;
+        newTemplate.CreatedBy = TenantContext.UserId;
+        Db.ScoresheetTemplates.Add(newTemplate);
+        await Db.SaveChangesAsync();
+
+        newTemplate = new();
+        selectedDivisions = null;
+        showCreateForm = false;
+        await LoadTemplates();
+    }
+
+    private async Task DeleteTemplate(Guid templateId)
+    {
+        var template = await Db.ScoresheetTemplates.FindAsync(templateId);
+        if (template is not null)
+        {
+            Db.ScoresheetTemplates.Remove(template);
+            await Db.SaveChangesAsync();
+            await LoadTemplates();
+        }
+    }
+
+    private void ToggleCaptionForm(Guid templateId)
+    {
+        captionFormTemplateId = captionFormTemplateId == templateId ? null : templateId;
+        newCaption = new() { MaxScore = 10, Weight = 1.0m };
+    }
+
+    private async Task AddCaption(Guid templateId)
+    {
+        if (string.IsNullOrWhiteSpace(newCaption.Name))
+            return;
+
+        newCaption.TemplateId = templateId;
+        newCaption.CreatedBy = TenantContext.UserId;
+        Db.ScoresheetCaptions.Add(newCaption);
+        await Db.SaveChangesAsync();
+
+        newCaption = new() { MaxScore = 10, Weight = 1.0m };
+        captionFormTemplateId = null;
+        await LoadTemplates();
+    }
+
+    private async Task DeleteCaption(Guid captionId)
+    {
+        var caption = await Db.ScoresheetCaptions
+            .Include(c => c.Subcaptions)
+            .FirstOrDefaultAsync(c => c.Id == captionId);
+        if (caption is not null)
+        {
+            Db.ScoresheetSubcaptions.RemoveRange(caption.Subcaptions);
+            Db.ScoresheetCaptions.Remove(caption);
+            await Db.SaveChangesAsync();
+            await LoadTemplates();
+        }
+    }
+
+    private void ToggleSubcaptionForm(Guid captionId)
+    {
+        subcaptionFormCaptionId = subcaptionFormCaptionId == captionId ? null : captionId;
+        newSubcaption = new() { MinScore = 0, MaxScore = 10, Increment = 0.1m, Weight = 1.0m };
+    }
+
+    private async Task AddSubcaption(Guid captionId)
+    {
+        if (string.IsNullOrWhiteSpace(newSubcaption.Name))
+            return;
+
+        newSubcaption.CaptionId = captionId;
+        newSubcaption.CreatedBy = TenantContext.UserId;
+        Db.ScoresheetSubcaptions.Add(newSubcaption);
+        await Db.SaveChangesAsync();
+
+        newSubcaption = new() { MinScore = 0, MaxScore = 10, Increment = 0.1m, Weight = 1.0m };
+        subcaptionFormCaptionId = null;
+        await LoadTemplates();
+    }
+
+    private async Task DeleteSubcaption(Guid subcaptionId)
+    {
+        var sub = await Db.ScoresheetSubcaptions.FindAsync(subcaptionId);
+        if (sub is not null)
+        {
+            Db.ScoresheetSubcaptions.Remove(sub);
+            await Db.SaveChangesAsync();
+            await LoadTemplates();
+        }
+    }
+}

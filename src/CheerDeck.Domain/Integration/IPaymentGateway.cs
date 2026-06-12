@@ -1,5 +1,7 @@
 namespace CheerDeck.Domain.Integration;
 
+public record CheckoutSession(string Id, string Url);
+
 public record PaymentIntent(
     string Id,
     string Status,
@@ -39,4 +41,7 @@ public interface IPaymentGateway
         Dictionary<string, string>? metadata = null, CancellationToken ct = default);
 
     Task<SubscriptionResult> CancelSubscriptionAsync(string subscriptionId, CancellationToken ct = default);
+
+    Task<CheckoutSession> CreateCheckoutSessionAsync(decimal amount, string currency, string description,
+        string successUrl, string cancelUrl, Dictionary<string, string>? metadata = null, CancellationToken ct = default);
 }

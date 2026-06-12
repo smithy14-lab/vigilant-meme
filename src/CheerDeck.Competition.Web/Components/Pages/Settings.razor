@@ -1,0 +1,126 @@
+@page "/settings"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject ITenantContext TenantContext
+@inject AppDbContext Db
+
+<PageTitle>Settings - CheerDeck Competitions</PageTitle>
+
+<h1 class="mb-4">Organisation Settings</h1>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_tenant is null)
+{
+    <div class="alert alert-danger">Organisation not found.</div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @_successMessage
+            <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @_errorMessage
+            <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">Organisation Profile</div>
+                <div class="card-body">
+                    <EditForm Model="_tenant" OnValidSubmit="SaveAsync" FormName="orgSettings">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label">Slug</label>
+                            <input type="text" class="form-control" value="@_tenant.Slug" disabled />
+                            <div class="form-text">Your organisation's unique identifier. This cannot be changed.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Organisation Name</label>
+                            <InputText class="form-control" @bind-Value="_tenant.Name" />
+                            <ValidationMessage For="() => _tenant.Name" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Contact Email</label>
+                            <InputText class="form-control" @bind-Value="_tenant.ContactEmail" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Contact Phone</label>
+                            <InputText class="form-control" @bind-Value="_tenant.ContactPhone" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Address</label>
+                            <InputTextArea class="form-control" @bind-Value="_tenant.Address" rows="3" />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" disabled="@_saving">
+                            @if (_saving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            }
+                            Save Changes
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _saving;
+    private Tenant? _tenant;
+    private string? _successMessage;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenant = await Db.Tenants.FindAsync(TenantContext.TenantId);
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_tenant is null) return;
+
+        _saving = true;
+        _successMessage = null;
+        _errorMessage = null;
+
+        try
+        {
+            _tenant.UpdatedAt = DateTime.UtcNow;
+            await Db.SaveChangesAsync();
+            _successMessage = "Settings saved successfully.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to save settings: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

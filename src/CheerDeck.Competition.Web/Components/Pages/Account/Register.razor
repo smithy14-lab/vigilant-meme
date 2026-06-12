@@ -12,8 +12,13 @@
 
 <form method="post" action="/account/perform-register">
     <div class="mb-3">
-        <label class="form-label">Full Name <span class="text-danger">*</span></label>
-        <input type="text" name="fullName" class="form-control" placeholder="Jane Smith" required autofocus />
+        <label class="form-label">Organisation Name <span class="text-danger">*</span></label>
+        <input type="text" name="orgName" class="form-control" placeholder="UK Cheer Championships" required autofocus />
+        <div class="form-text">Your event production company or organisation name.</div>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Your Name <span class="text-danger">*</span></label>
+        <input type="text" name="fullName" class="form-control" placeholder="Jane Smith" required />
     </div>
     <div class="mb-3">
         <label class="form-label">Email address <span class="text-danger">*</span></label>
@@ -28,7 +33,7 @@
         <label class="form-label">Confirm Password <span class="text-danger">*</span></label>
         <input type="password" name="confirmPassword" class="form-control" required minlength="6" />
     </div>
-    <button type="submit" class="btn btn-danger w-100 mb-3">Create Account</button>
+    <button type="submit" class="btn btn-danger w-100 mb-3">Create Producer Account</button>
 </form>
 
 <div class="text-center">
@@ -50,6 +55,7 @@
             "PasswordRequiresDigit" => "Password must contain a digit.",
             "PasswordRequiresNonAlphanumeric" => "Password must contain a special character.",
             "PasswordMismatch" => "Passwords do not match.",
+            "OrgNameRequired" => "Organisation name is required.",
             _ => e
         });
         return string.Join(" ", messages.Distinct());

@@ -162,4 +162,50 @@ public class StripePaymentGateway(IConfiguration configuration, ILogger<StripePa
 
         return new SubscriptionResult(true, subscriptionId, "cancelled", null);
     }
+
+    public async Task<CheckoutSession> CreateCheckoutSessionAsync(decimal amount, string currency, string description,
+        string successUrl, string cancelUrl, Dictionary<string, string>? metadata = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(SecretKey))
+        {
+            logger.LogWarning("Stripe secret key not configured — using stub mode");
+            return new CheckoutSession($"cs_stub_{Guid.NewGuid():N}"[..24], "https://checkout.stripe.com/stub");
+        }
+
+        logger.LogInformation("Creating Stripe Checkout Session: {Amount} {Currency}", amount, currency);
+
+        using var client = new HttpClient();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", SecretKey);
+
+        var parameters = new Dictionary<string, string>
+        {
+            ["mode"] = "payment",
+            ["success_url"] = successUrl,
+            ["cancel_url"] = cancelUrl,
+            ["line_items[0][price_data][currency]"] = currency.ToLower(),
+            ["line_items[0][price_data][product_data][name]"] = description,
+            ["line_items[0][price_data][unit_amount]"] = ((int)(amount * 100)).ToString(),
+            ["line_items[0][quantity]"] = "1"
+        };
+
+        if (metadata != null)
+            foreach (var (key, value) in metadata)
+                parameters[$"metadata[{key}]"] = value;
+
+        var response = await client.PostAsync("https://api.stripe.com/v1/checkout/sessions",
+            new FormUrlEncodedContent(parameters), ct);
+        var json = await response.Content.ReadAsStringAsync(ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            logger.LogError("Stripe Checkout Session error: {Response}", json);
+            return new CheckoutSession("", "");
+        }
+
+        var doc = System.Text.Json.JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        return new CheckoutSession(
+            Id: root.GetProperty("id").GetString()!,
+            Url: root.GetProperty("url").GetString()!);
+    }
 }
