@@ -30,12 +30,13 @@ public static class SeedData
 
         await SeedRolesAsync(scope.ServiceProvider);
 
-        if (await db.Tenants.AnyAsync()) return;
+        if (!await db.Tenants.AnyAsync())
+        {
+            await SeedTenantsAsync(db);
+            await SeedUsersAsync(scope.ServiceProvider, db);
+        }
 
-        await SeedTenantsAsync(db);
-        await SeedUsersAsync(scope.ServiceProvider, db);
-
-        if (seedDemoData && useInMemory)
+        if (seedDemoData && !await db.Athletes.IgnoreQueryFilters().AnyAsync())
         {
             await SeedClubDataAsync(db);
             await SeedCompetitionDataAsync(db);
