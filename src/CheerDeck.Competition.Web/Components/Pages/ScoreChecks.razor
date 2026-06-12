@@ -1,0 +1,164 @@
+@page "/score-checks"
+@attribute [Authorize(Roles = "EventProducer,Tabulator")]
+@rendermode InteractiveServer
+@inject AppDbContext Db
+@inject ITenantContext TenantContext
+
+<PageTitle>Score Check Requests - CheerDeck Competitions</PageTitle>
+
+<h1 class="mb-4">Score Check Requests</h1>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-danger" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row mb-3">
+        <div class="col-auto">
+            <select class="form-select" @bind="_filterStatus">
+                <option value="">All</option>
+                <option value="Pending">Pending</option>
+                <option value="Under Review">Under Review</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <span class="badge bg-warning text-dark fs-6 mt-1">@FilteredRequests.Count(r => r.Status == "Pending") pending</span>
+        </div>
+    </div>
+
+    @if (!FilteredRequests.Any())
+    {
+        <div class="alert alert-info">No score check requests found.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Entry</th>
+                        <th>Requested</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>Resolution</th>
+                        <th style="width:200px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var req in FilteredRequests)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@(req.Entry?.TeamName ?? "—")</strong>
+                                <br /><small class="text-muted">@(req.Entry?.Division?.Name ?? "")</small>
+                            </td>
+                            <td>@req.RequestedAt.ToString("dd MMM HH:mm")</td>
+                            <td>@(req.Reason ?? "—")</td>
+                            <td>
+                                <span class="badge @StatusBadgeClass(req.Status)">@req.Status</span>
+                            </td>
+                            <td>
+                                @if (req.Status is "Resolved" or "Rejected")
+                                {
+                                    @(req.Resolution ?? "—")
+                                }
+                                else if (_editingId == req.Id)
+                                {
+                                    <input type="text" class="form-control form-control-sm" @bind="_resolutionText" />
+                                }
+                            </td>
+                            <td>
+                                @if (req.Status == "Pending")
+                                {
+                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => UpdateStatus(req, UnderReviewStatus)">Review</button>
+                                }
+                                @if (req.Status is "Pending" or "Under Review")
+                                {
+                                    @if (_editingId == req.Id)
+                                    {
+                                        <button class="btn btn-sm btn-success me-1" @onclick="() => Resolve(req)">Save</button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Reject(req)">Reject</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-success" @onclick="() => StartResolve(req)">Resolve</button>
+                                    }
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private const string UnderReviewStatus = "Under Review";
+    private bool _loading = true;
+    private string _filterStatus = "";
+    private List<ScoreCheckRequest> _requests = new();
+    private Guid? _editingId;
+    private string _resolutionText = "";
+
+    private IEnumerable<ScoreCheckRequest> FilteredRequests =>
+        string.IsNullOrEmpty(_filterStatus)
+            ? _requests
+            : _requests.Where(r => r.Status == _filterStatus);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _requests = await Db.ScoreCheckRequests
+            .Include(r => r.Entry)
+                .ThenInclude(e => e.Division)
+            .OrderByDescending(r => r.RequestedAt)
+            .ToListAsync();
+        _loading = false;
+    }
+
+    private void StartResolve(ScoreCheckRequest req)
+    {
+        _editingId = req.Id;
+        _resolutionText = "";
+    }
+
+    private async Task UpdateStatus(ScoreCheckRequest req, string status)
+    {
+        req.Status = status;
+        await Db.SaveChangesAsync();
+    }
+
+    private async Task Resolve(ScoreCheckRequest req)
+    {
+        req.Status = "Resolved";
+        req.Resolution = _resolutionText;
+        req.ResolvedAt = DateTime.UtcNow;
+        await Db.SaveChangesAsync();
+        _editingId = null;
+    }
+
+    private async Task Reject(ScoreCheckRequest req)
+    {
+        req.Status = "Rejected";
+        req.Resolution = string.IsNullOrWhiteSpace(_resolutionText) ? "Score verified — no adjustment" : _resolutionText;
+        req.ResolvedAt = DateTime.UtcNow;
+        await Db.SaveChangesAsync();
+        _editingId = null;
+    }
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "Pending" => "bg-warning text-dark",
+        "Under Review" => "bg-info",
+        "Resolved" => "bg-success",
+        "Rejected" => "bg-secondary",
+        _ => "bg-secondary"
+    };
+}

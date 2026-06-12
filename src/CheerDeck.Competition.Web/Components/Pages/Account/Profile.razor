@@ -1,0 +1,144 @@
+@page "/account/profile"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject UserManager<AppUser> UserManager
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>My Profile - CheerDeck Competitions</PageTitle>
+
+<h1 class="mb-4">My Profile</h1>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-danger" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_user is null)
+{
+    <div class="alert alert-danger">Unable to load profile.</div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible fade show">
+            @_message
+            <button type="button" class="btn-close" @onclick="() => _message = null"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">Account Details</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" @bind="_fullName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" value="@_user.Email" disabled />
+                        <div class="form-text">Email cannot be changed.</div>
+                    </div>
+                    <button class="btn btn-danger" @onclick="SaveProfileAsync" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Change Password</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Current Password</label>
+                        <input type="password" class="form-control" @bind="_currentPassword" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">New Password</label>
+                        <input type="password" class="form-control" @bind="_newPassword" />
+                        <div class="form-text">At least 6 characters, including uppercase, lowercase, digit, and special character.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirm New Password</label>
+                        <input type="password" class="form-control" @bind="_confirmPassword" />
+                    </div>
+                    <button class="btn btn-warning" @onclick="ChangePasswordAsync" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Change Password
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _saving;
+    private AppUser? _user;
+    private string _fullName = "";
+    private string _currentPassword = "";
+    private string _newPassword = "";
+    private string _confirmPassword = "";
+    private string? _message;
+    private bool _isError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId is not null)
+        {
+            _user = await UserManager.FindByIdAsync(userId);
+            _fullName = _user?.FullName ?? "";
+        }
+        _loading = false;
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        if (_user is null) return;
+        _saving = true;
+        _message = null;
+
+        _user.FullName = _fullName.Trim();
+        var result = await UserManager.UpdateAsync(_user);
+        _message = result.Succeeded ? "Profile updated." : string.Join(", ", result.Errors.Select(e => e.Description));
+        _isError = !result.Succeeded;
+        _saving = false;
+    }
+
+    private async Task ChangePasswordAsync()
+    {
+        if (_user is null) return;
+
+        if (_newPassword != _confirmPassword)
+        {
+            _message = "New passwords do not match.";
+            _isError = true;
+            return;
+        }
+
+        _saving = true;
+        _message = null;
+
+        var result = await UserManager.ChangePasswordAsync(_user, _currentPassword, _newPassword);
+        _message = result.Succeeded ? "Password changed successfully." : string.Join(", ", result.Errors.Select(e => e.Description));
+        _isError = !result.Succeeded;
+
+        if (result.Succeeded)
+        {
+            _currentPassword = "";
+            _newPassword = "";
+            _confirmPassword = "";
+        }
+
+        _saving = false;
+    }
+}
