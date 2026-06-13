@@ -65,6 +65,7 @@ try
 }
 catch (Exception ex)
 {
+    CheerDeck.Infrastructure.Data.SeedData.LastInitError = ex.ToString();
     app.Logger.LogCritical(ex, "Database initialization failed — app will start without seeded data");
 }
 
@@ -121,7 +122,8 @@ app.MapGet("/health/startup", async (IServiceProvider sp) =>
         connectionStringPresent = !string.IsNullOrEmpty(connStr),
         useInMemory,
         dbStatus,
-        environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "unknown"
+        environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "unknown",
+        seedError = CheerDeck.Infrastructure.Data.SeedData.LastInitError
     });
 });
 app.MapControllers();

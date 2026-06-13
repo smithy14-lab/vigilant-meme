@@ -9,10 +9,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
+
 public static class SeedData
 {
     public static readonly Guid ClubTenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     public static readonly Guid ProducerTenantId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    public static string? LastInitError { get; set; }
 
     public static async Task InitializeAsync(IServiceProvider services, bool seedDemoData = true)
     {
@@ -24,9 +28,23 @@ public static class SeedData
                           string.IsNullOrEmpty(config.GetConnectionString("DefaultConnection"));
 
         if (useInMemory)
+        {
             await db.Database.EnsureCreatedAsync();
+        }
         else
-            await db.Database.EnsureCreatedAsync();
+        {
+            var dbCreator = db.GetService<IRelationalDatabaseCreator>();
+            if (!await dbCreator.ExistsAsync())
+                await dbCreator.CreateAsync();
+            try
+            {
+                await dbCreator.CreateTablesAsync();
+            }
+            catch (Exception ex) when (ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+            {
+                // Tables already created — safe to continue
+            }
+        }
 
         await SeedRolesAsync(scope.ServiceProvider);
 
