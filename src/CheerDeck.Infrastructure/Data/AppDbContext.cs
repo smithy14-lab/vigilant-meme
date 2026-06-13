@@ -86,6 +86,13 @@ public class AppDbContext : IdentityDbContext<AppUser>, IAppDbContext
         ApplySoftDeleteFilters(builder);
         ConfigureRelationships(builder);
         ConfigureIndexes(builder);
+
+        foreach (var relationship in builder.Model.GetEntityTypes()
+            .SelectMany(e => e.GetForeignKeys())
+            .Where(fk => fk.DeleteBehavior == DeleteBehavior.Cascade))
+        {
+            relationship.DeleteBehavior = DeleteBehavior.Restrict;
+        }
     }
 
     private void ApplyTenantFilters(ModelBuilder builder)

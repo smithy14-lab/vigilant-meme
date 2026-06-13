@@ -134,9 +134,15 @@ app.MapGet("/admin/create-tables", async (IServiceProvider sp) =>
     try
     {
         var script = db.Database.GenerateCreateScript();
-        await db.Database.ExecuteSqlRawAsync(script);
+        var batches = script.Split(new[] { "\r\nGO\r\n", "\nGO\n", "\nGO\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var batch in batches)
+        {
+            var sql = batch.Trim();
+            if (!string.IsNullOrEmpty(sql))
+                await db.Database.ExecuteSqlRawAsync(sql);
+        }
         await CheerDeck.Infrastructure.Data.SeedData.InitializeAsync(sp);
-        return Results.Ok(new { status = "Tables created and data seeded" });
+        return Results.Ok(new { status = "Tables created and data seeded", batches = batches.Length });
     }
     catch (Exception ex)
     {
