@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using CheerDeck.Api.Middleware;
 using CheerDeck.Infrastructure;
 using CheerDeck.Infrastructure.Data;
@@ -125,6 +126,28 @@ app.MapGet("/health/startup", async (IServiceProvider sp) =>
         environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "unknown",
         seedError = CheerDeck.Infrastructure.Data.SeedData.LastInitError
     });
+});
+app.MapGet("/admin/create-tables", async (IServiceProvider sp) =>
+{
+    using var scope = sp.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<CheerDeck.Infrastructure.Data.AppDbContext>();
+    try
+    {
+        var script = db.Database.GenerateCreateScript();
+        await db.Database.ExecuteSqlRawAsync(script);
+        await CheerDeck.Infrastructure.Data.SeedData.InitializeAsync(sp);
+        return Results.Ok(new { status = "Tables created and data seeded" });
+    }
+    catch (Exception ex)
+    {
+        return Results.Ok(new { error = ex.Message, detail = ex.ToString() });
+    }
+});
+app.MapGet("/admin/schema-sql", (IServiceProvider sp) =>
+{
+    using var scope = sp.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<CheerDeck.Infrastructure.Data.AppDbContext>();
+    return Results.Text(db.Database.GenerateCreateScript(), "text/plain");
 });
 app.MapControllers();
 app.MapHub<RunningOrderHub>("/hubs/running-order");
