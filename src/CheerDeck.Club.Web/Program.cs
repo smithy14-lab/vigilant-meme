@@ -40,13 +40,9 @@ catch (Exception ex)
     app.Logger.LogCritical(ex, "Database initialization failed — app will start without seeded data");
 }
 
-if (app.Environment.IsDevelopment())
+if (!app.Environment.IsDevelopment())
 {
-    app.UseDeveloperExceptionPage();
-}
-else
-{
-    app.UseDeveloperExceptionPage();
+    app.UseExceptionHandler("/Error");
     app.UseHsts();
     app.UseHttpsRedirection();
 }
