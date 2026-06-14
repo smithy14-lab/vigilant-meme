@@ -1,0 +1,42 @@
+@using CheerDeck.Club.Web.Services
+@using CheerDeck.Infrastructure.Identity
+@inject ActiveRoleState RoleState
+@inject NavigationManager Navigation
+
+@if (RoleState.AvailableRoles.Count > 1)
+{
+    <div class="dropdown">
+        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            @AppRoles.DisplayName(RoleState.ActiveRole) View
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            @foreach (var role in RoleState.AvailableRoles)
+            {
+                <li>
+                    <button class="dropdown-item @(role == RoleState.ActiveRole ? "active" : "")" @onclick="() => SwitchRole(role)">
+                        @AppRoles.DisplayName(role)
+                    </button>
+                </li>
+            }
+        </ul>
+    </div>
+}
+else
+{
+    <span class="badge bg-secondary">@AppRoles.DisplayName(RoleState.ActiveRole)</span>
+}
+
+@code {
+    private void SwitchRole(string role)
+    {
+        RoleState.ActiveRole = role;
+        var target = role switch
+        {
+            AppRoles.ClubOwner or AppRoles.ClubAdmin or AppRoles.Coach => "/",
+            AppRoles.Guardian => "/parent",
+            AppRoles.Athlete => "/my-profile",
+            _ => "/"
+        };
+        Navigation.NavigateTo(target, forceLoad: true);
+    }
+}

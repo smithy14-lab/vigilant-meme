@@ -1,4 +1,7 @@
 @inherits LayoutComponentBase
+@using CheerDeck.Club.Web.Services
+@using CheerDeck.Infrastructure.Identity
+@inject ActiveRoleState RoleState
 
 <div class="page">
     <div class="sidebar">
@@ -12,7 +15,7 @@
                 <Authorized>
                     <div class="d-flex align-items-center gap-2">
                         <a href="/account/profile" class="text-decoration-none text-muted small">@(context.User.FindFirst("FullName")?.Value ?? context.User.Identity?.Name)</a>
-                        <span class="badge bg-secondary">@context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</span>
+                        <RoleSwitcher />
                         <form method="post" action="/account/perform-logout">
                             <button type="submit" class="btn btn-outline-danger btn-sm">Logout</button>
                         </form>
@@ -32,3 +35,20 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">X</span>
 </div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is not null)
+        {
+            var state = await AuthState;
+            if (state.User.Identity?.IsAuthenticated == true)
+            {
+                RoleState.Initialize(state.User);
+            }
+        }
+    }
+}

@@ -7,9 +7,7 @@
 @inject WaiverService WaiverService
 @inject ITenantContext TenantContext
 
-<PageTitle>Parent Portal - CheerDeck Club</PageTitle>
-
-<h1 class="mb-4">Parent Portal</h1>
+<PageTitle>My Dashboard - CheerDeck Club</PageTitle>
 
 @if (_loading)
 {
@@ -29,57 +27,130 @@ else if (_guardian is null)
 }
 else
 {
-    <div class="alert alert-info mb-4">
-        Welcome back, <strong>@_guardian.FullName</strong>!
-    </div>
+    <h1 class="mb-4">Hi, @_guardian.FirstName!</h1>
 
     <div class="row g-4 mb-4">
-        <div class="col-md-3">
-            <div class="card text-center h-100">
-                <div class="card-body">
-                    <h5 class="card-title text-primary">@_athleteCount</h5>
-                    <p class="card-text">Linked Athletes</p>
-                    <a href="parent/athletes" class="btn btn-sm btn-outline-primary">View Athletes</a>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-muted text-uppercase small">Account Balance</h6>
+                    <h2 class="fw-bold @(_totalOutstanding > 0 ? "text-danger" : "text-success")">
+                        @_totalOutstanding.ToString("C")
+                    </h2>
+                    <p class="text-muted small mb-0">
+                        @if (_totalOutstanding > 0)
+                        {
+                            <span>outstanding across @_outstandingInvoiceCount invoice(s)</span>
+                        }
+                        else
+                        {
+                            <span>all paid up!</span>
+                        }
+                    </p>
+                    @if (_totalOutstanding > 0)
+                    {
+                        <a href="parent/invoices" class="btn btn-sm btn-danger mt-2">Pay Now</a>
+                    }
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card text-center h-100">
-                <div class="card-body">
-                    <h5 class="card-title text-info">@_upcomingClassCount</h5>
-                    <p class="card-text">Upcoming Classes</p>
-                    <a href="parent/athletes" class="btn btn-sm btn-outline-info">View Schedule</a>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-muted text-uppercase small">My Athletes</h6>
+                    <h2 class="fw-bold text-primary">@_athleteCount</h2>
+                    <p class="text-muted small mb-0">linked to your account</p>
+                    <a href="parent/athletes" class="btn btn-sm btn-outline-primary mt-2">View Athletes</a>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card text-center h-100">
-                <div class="card-body">
-                    <h5 class="card-title text-warning">@_outstandingInvoiceCount</h5>
-                    <p class="card-text">Outstanding Invoices</p>
-                    <a href="parent/invoices" class="btn btn-sm btn-outline-warning">View Invoices</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center h-100">
-                <div class="card-body">
-                    <h5 class="card-title text-danger">@_unsignedWaiverCount</h5>
-                    <p class="card-text">Unsigned Waivers</p>
-                    <a href="parent/waivers" class="btn btn-sm btn-outline-danger">View Waivers</a>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <h6 class="text-muted text-uppercase small">Active Classes</h6>
+                    <h2 class="fw-bold text-info">@_activeEnrolments</h2>
+                    <p class="text-muted small mb-0">current enrolments</p>
+                    <a href="parent/athletes" class="btn btn-sm btn-outline-info mt-2">View Schedule</a>
                 </div>
             </div>
         </div>
     </div>
+
+    @if (_unsignedWaiverCount > 0)
+    {
+        <div class="alert alert-warning d-flex align-items-center mb-4">
+            <strong class="me-2">Action needed:</strong>
+            <span>You have @_unsignedWaiverCount unsigned waiver(s).</span>
+            <a href="parent/waivers" class="btn btn-sm btn-warning ms-auto">Sign Waivers</a>
+        </div>
+    }
+
+    @if (_athletes.Count > 0)
+    {
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">My Athletes</h5>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>Name</th><th>Age</th><th>Level</th><th>Classes</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in _athletes)
+                        {
+                            <tr>
+                                <td>@a.FullName</td>
+                                <td>@a.GetAgeOnDate(DateOnly.FromDateTime(DateTime.UtcNow))</td>
+                                <td><span class="badge bg-primary">@a.Level</span></td>
+                                <td>@a.Enrolments.Count(e => e.Status == EnrolmentStatus.Active)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    @if (_recentInvoices.Count > 0)
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Recent Invoices</h5>
+                <a href="parent/invoices" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>Invoice #</th><th>Date</th><th>Total</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var inv in _recentInvoices)
+                        {
+                            <tr>
+                                <td>@inv.InvoiceNumber</td>
+                                <td>@inv.IssueDate.ToString("dd MMM yyyy")</td>
+                                <td>@inv.Total.ToString("C")</td>
+                                <td><span class="badge @GetStatusBadge(inv.Status)">@inv.Status</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 }
 
 @code {
     private bool _loading = true;
     private Guardian? _guardian;
     private int _athleteCount;
-    private int _upcomingClassCount;
+    private int _activeEnrolments;
     private int _outstandingInvoiceCount;
     private int _unsignedWaiverCount;
+    private decimal _totalOutstanding;
+    private List<Athlete> _athletes = new();
+    private List<Invoice> _recentInvoices = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -88,29 +159,40 @@ else
             ? await GuardianService.GetByUserIdAsync(userId)
             : null;
 
-        // Fallback for demo: if no user-linked guardian, use first guardian
         _guardian ??= (await GuardianService.GetAllAsync()).FirstOrDefault();
 
         if (_guardian is not null)
         {
-            _athleteCount = _guardian.Athletes.Count;
+            var athleteIds = _guardian.Athletes.Select(ag => ag.AthleteId).ToList();
+            _athletes = await AthleteService.GetByIdsWithEnrolmentsAsync(athleteIds);
+            _athleteCount = _athletes.Count;
+            _activeEnrolments = _athletes.SelectMany(a => a.Enrolments)
+                .Count(e => e.Status == EnrolmentStatus.Active);
 
             var invoices = await InvoiceService.GetAllAsync();
             var guardianInvoices = invoices.Where(i => i.GuardianId == _guardian.Id).ToList();
             _outstandingInvoiceCount = guardianInvoices.Count(i =>
-                i.Status == InvoiceStatus.Draft || i.Status == InvoiceStatus.Sent || i.Status == InvoiceStatus.Overdue);
+                i.Status is InvoiceStatus.Draft or InvoiceStatus.Sent or InvoiceStatus.Overdue);
+            _totalOutstanding = guardianInvoices
+                .Where(i => i.Status is InvoiceStatus.Draft or InvoiceStatus.Sent or InvoiceStatus.Overdue)
+                .Sum(i => i.Total);
+            _recentInvoices = guardianInvoices.OrderByDescending(i => i.IssueDate).Take(5).ToList();
 
             var unsignedWaivers = await WaiverService.GetUnsignedForGuardianAsync(_guardian.Id);
             _unsignedWaiverCount = unsignedWaivers.Count;
-
-            var athleteIds = _guardian.Athletes.Select(ag => ag.AthleteId).ToHashSet();
-            var allAthletes = await AthleteService.GetAllAsync();
-            _upcomingClassCount = allAthletes
-                .Where(a => athleteIds.Contains(a.Id))
-                .SelectMany(a => a.Enrolments)
-                .Count(e => e.Status == EnrolmentStatus.Active);
         }
 
         _loading = false;
     }
+
+    private static string GetStatusBadge(InvoiceStatus status) => status switch
+    {
+        InvoiceStatus.Paid => "bg-success",
+        InvoiceStatus.Overdue => "bg-danger",
+        InvoiceStatus.Sent => "bg-warning text-dark",
+        InvoiceStatus.Draft => "bg-secondary",
+        InvoiceStatus.Cancelled => "bg-dark",
+        InvoiceStatus.Refunded => "bg-info",
+        _ => "bg-secondary"
+    };
 }

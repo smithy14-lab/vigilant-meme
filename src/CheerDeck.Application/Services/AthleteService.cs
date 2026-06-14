@@ -15,6 +15,15 @@ public class AthleteService(IAppDbContext db, ITenantContext tenant)
             .ToListAsync(ct);
     }
 
+    public async Task<List<Athlete>> GetByIdsWithEnrolmentsAsync(IEnumerable<Guid> ids, CancellationToken ct = default)
+    {
+        return await db.Athletes
+            .Include(a => a.Enrolments)
+            .Where(a => ids.Contains(a.Id) && !a.IsDeleted)
+            .OrderBy(a => a.FirstName)
+            .ToListAsync(ct);
+    }
+
     public async Task<Athlete?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
         return await db.Athletes

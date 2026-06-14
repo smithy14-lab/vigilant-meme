@@ -5,6 +5,7 @@ using CheerDeck.Infrastructure.Data;
 using CheerDeck.Infrastructure.Identity;
 using CheerDeck.Infrastructure.Hubs;
 using CheerDeck.Club.Web.Components;
+using CheerDeck.Club.Web.Services;
 using Microsoft.AspNetCore.Identity;
 using CheerDeck.Application.Interfaces;
 
@@ -14,6 +15,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<ActiveRoleState>();
 builder.Services.AddCheerDeckInfrastructure(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHealthChecks();
